@@ -1,10 +1,9 @@
 /* 家庭分享計時 — Service Worker
    所有靜態頁面、樣式、模組、自帶子集字型與圖示皆在首次開啟預先快取；
-   100 組同時打開後各自完全離線運作，零伺服器請求、零互相干擾。
-   OCR 引擎與語言包則在首次點選「拍照辨識名單」時自動快取。 */
+   100 組同時打開後各自完全離線運作，零伺服器請求、零互相干擾。 */
 'use strict';
 
-const CACHE_VERSION = 'family-timer-v1';
+const CACHE_VERSION = 'family-timer-v2';
 const OCR_CACHE = 'family-timer-ocr-v1';
 
 const PRECACHE_ASSETS = [
@@ -16,6 +15,7 @@ const PRECACHE_ASSETS = [
   './styles/setup.css',
   './styles/timer.css',
   './styles/seats.css',
+  './styles/circle.css',
   './styles/panels.css',
   './styles/modals.css',
   './js/main.js',
@@ -25,6 +25,9 @@ const PRECACHE_ASSETS = [
   './js/audio.js',
   './js/timer-engine.js',
   './js/setup-view.js',
+  './js/seat-drag.js',
+  './js/seat-renderer.js',
+  './js/circle-view.js',
   './js/timer-view.js',
   './js/drawer-view.js',
   './js/ocr.js',
@@ -62,7 +65,6 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // 按需快取 Tesseract OCR CDN 腳本／WASM／繁中訓練字庫（首次使用後離線亦可用）
   if (url.hostname.includes('jsdelivr.net') || url.hostname.includes('projectnaptha.com')) {
     event.respondWith((async () => {
       const cache = await caches.open(OCR_CACHE);

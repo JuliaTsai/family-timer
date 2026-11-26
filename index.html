@@ -15,20 +15,19 @@
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
   <link rel="manifest" href="./manifest.json">
-
   <link rel="stylesheet" href="./styles/fonts.css">
   <link rel="stylesheet" href="./styles/tokens.css">
   <link rel="stylesheet" href="./styles/setup.css">
   <link rel="stylesheet" href="./styles/timer.css">
   <link rel="stylesheet" href="./styles/seats.css">
+  <link rel="stylesheet" href="./styles/circle.css">
   <link rel="stylesheet" href="./styles/panels.css">
   <link rel="stylesheet" href="./styles/modals.css">
   <title>家庭分享計時</title>
 </head>
 <body>
-  <div class="app" id="app" data-view="setup" data-mode="idle" data-paused="false">
-
-    <!-- ==================== 1. 名單設定畫面 ==================== -->
+  <div class="app" id="app" data-view="setup" data-mode="idle" data-paused="false" data-share-mode="table">
+    <!-- 1. 名單設定畫面 -->
     <main class="setup-view" id="setupView" aria-label="名單設定">
       <header class="setup-topbar">
         <div class="setup-title-group">
@@ -37,10 +36,7 @@
           <button type="button" class="btn-pill btn-ghost btn-sm" id="setupNewGroupBtn" title="建立另一組名單">新增一組</button>
         </div>
         <div class="setup-status-right">
-          <span class="offline-pill">
-            <i class="offline-dot" aria-hidden="true"></i>
-            <span data-offline-label data-with-privacy="true">可離線 · 資料只存在這台裝置</span>
-          </span>
+          <span class="offline-pill"><i class="offline-dot" aria-hidden="true"></i><span data-offline-label data-with-privacy="true">可離線 · 資料只存在這台裝置</span></span>
           <button type="button" class="btn-pill btn-ghost btn-sm" id="backToTimerBtn" hidden>返回計時</button>
         </div>
       </header>
@@ -59,7 +55,7 @@
 
         <div class="setup-section-bar">
           <span class="setup-section-title" id="setupSeatCount">座位名單 · 12 座位</span>
-          <span class="setup-section-note">直接輸入即可，不需要匯入</span>
+          <span class="setup-section-note">第 1 格固定家長、第 2 格固定副家長 · 3～12 可拖曳換順序</span>
         </div>
 
         <div class="setup-seats-grid" id="setupSeatsGrid" role="group" aria-label="12 個座位名單"></div>
@@ -68,6 +64,7 @@
           <div class="setup-footer-left">
             <button type="button" class="btn-pill btn-outline" id="openPasteBtn">一次貼上多個名字</button>
             <button type="button" class="btn-pill btn-outline" id="openOcrBtn">拍照辨識名單</button>
+            <button type="button" class="btn-pill btn-ghost" id="startCircleDirectBtn">就地圍圈（純計時）</button>
           </div>
           <button type="button" class="btn-pill btn-solid btn-lg" id="finishSetupBtn">完成，開始分享</button>
         </footer>
@@ -81,14 +78,39 @@
           <span class="course-pill" id="topCourseBadge" hidden></span>
           <span class="family-heading" id="topFamilyTitle">家庭分享計時</span>
         </button>
+
         <div class="timer-topbar-right">
-          <span class="offline-pill">
+          <!-- 桌次座位 ↔ 就地圍圈 雙模式切換 -->
+          <div class="mode-seg" role="group" aria-label="分享場景模式">
+            <button type="button" class="mode-seg-btn is-active" id="modeTableBtn" aria-pressed="true">桌次座位</button>
+            <button type="button" class="mode-seg-btn" id="modeCircleBtn" aria-pressed="false">就地圍圈</button>
+          </div>
+
+          <button type="button" class="btn-pill btn-ghost btn-sm arrange-btn" id="arrangeSeatsBtn">
+            <span id="arrangeSeatsText">排座位</span>
+          </button>
+
+          <span class="offline-pill hide-narrow">
             <i class="offline-dot" aria-hidden="true"></i>
             <span data-offline-label>可離線</span>
           </span>
           <button type="button" class="icon-circle-btn" id="openDrawerBtn" aria-label="名單、座位、設定" aria-expanded="false" aria-controls="settingsDrawer"></button>
         </div>
       </header>
+
+      <!-- 就地圍圈工具列（僅在就地圍圈模式顯示：順／逆時針切換、人數調整、重設） -->
+      <div class="circle-toolbar" id="circleToolbar" hidden>
+        <div class="mode-seg" role="group" aria-label="圍圈分享方向">
+          <button type="button" class="mode-seg-btn is-active" id="circleDirCwBtn" aria-pressed="true">順時針</button>
+          <button type="button" class="mode-seg-btn" id="circleDirCcwBtn" aria-pressed="false">逆時針</button>
+        </div>
+        <div class="circle-count-ctrl" role="group" aria-label="圍圈人數">
+          <button type="button" class="circle-step-btn" id="circleCountMinus" aria-label="減少 1 人">−</button>
+          <span class="circle-count-text" id="circleCountLabel">12 人</span>
+          <button type="button" class="circle-step-btn" id="circleCountPlus" aria-label="增加 1 人">＋</button>
+        </div>
+        <button type="button" class="btn-pill btn-ghost btn-sm" id="circleResetBtn">重設本輪</button>
+      </div>
 
       <!-- 平板／筆電：960×800 等比環桌舞台；手機窄螢幕：上方圓盤＋下方名單 -->
       <div class="stage-outer" id="stageOuter">
@@ -104,9 +126,16 @@
               <span class="dial-speaker" id="dialSpeaker" hidden></span>
               <span class="dial-clock" id="dialClock" role="timer" aria-live="off">01:00</span>
 
+              <button type="button" class="btn-pill btn-dial-primary circle-start-btn" id="circleIdleStartBtn" hidden>
+                <span>開始計時</span>
+              </button>
+
               <div class="dial-controls" id="dialControls" hidden>
                 <button type="button" class="btn-pill btn-dial-primary" id="pauseBtn" data-resume="false">
                   <span id="pauseBtnText">暫停</span>
+                </button>
+                <button type="button" class="btn-pill btn-dial-next" id="nextCircleBtn" hidden>
+                  <span>下一位</span>
                 </button>
                 <button type="button" class="btn-pill btn-dial-end" id="endBtn">
                   <span id="endBtnText">結束</span>
@@ -122,7 +151,7 @@
         </div>
       </div>
 
-      <!-- 手機直拿輔助座位名單 -->
+      <!-- 手機直拿輔助座位名單（桌次模式下顯示） -->
       <section class="mobile-seats" id="mobileSeatList" aria-label="點選成員開始計時"></section>
     </main>
   </div>
@@ -203,8 +232,8 @@
         <h2 class="modal-title" id="pasteModalTitle">一次貼上多個名字</h2>
         <button type="button" class="btn-pill btn-ghost btn-sm" data-paste-close>取消</button>
       </div>
-      <p class="modal-hint">每行一個名字（支援含「家長／副家長」、「男／女」或編號文字，會自動解析對位；iPad 點擊輸入框也可直接用鍵盤「掃描文字」拍紙本）。</p>
-      <textarea id="pasteTextarea" class="paste-textarea" rows="10" placeholder="吳珮綺 女&#10;副家長 何弈翰 男&#10;林志威 男&#10;..."></textarea>
+      <p class="modal-hint">每行一個名字（第 1 行預設為家長、第 2 行為副家長，亦支援含「家長／副家長」、「男／女」標籤自動對位）。</p>
+      <textarea id="pasteTextarea" class="paste-textarea" rows="10" placeholder="家長 李雨珊 女&#10;副家長 何弈翰 男&#10;吳珮綺 女&#10;林志威 男&#10;..."></textarea>
       <div class="modal-foot">
         <button type="button" class="btn-pill btn-outline" data-paste-close>關閉</button>
         <button type="button" class="btn-pill btn-solid" id="pasteApplyBtn">填入座位</button>

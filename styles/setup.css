@@ -1,4 +1,4 @@
-/* 名單設定畫面樣式（對齊視覺稿第 4 張：雙欄 12 座位、家長／副家長膠囊、♀／♂ 切換） */
+/* 名單設定畫面樣式（第 1 格固定家長、第 2 格固定副家長、第 3~12 格支援拖曳調整順序） */
 
 .setup-view {
   max-width: 1040px;
@@ -100,7 +100,7 @@
   letter-spacing: .04em;
 }
 
-/* 左欄 1~6、右欄 7~12 */
+/* 左欄 1~6（1=家長, 2=副家長, 3~6=組員）、右欄 7~12 */
 .setup-seats-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -117,7 +117,7 @@
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface-soft);
-  transition: border-color 150ms ease, background-color 150ms ease;
+  transition: border-color 150ms ease, background-color 150ms ease, transform 140ms ease, opacity 140ms ease;
 }
 
 .setup-seat-row:focus-within {
@@ -125,15 +125,40 @@
   background: var(--surface);
 }
 
+.setup-seat-row.is-dragging {
+  opacity: .48;
+}
+
+.setup-seat-row.is-drop-target {
+  border: 1.5px dashed var(--sage);
+  background: var(--halo);
+}
+
 .setup-seat-lead {
-  width: 72px;
+  width: 74px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   font-size: 17px;
   color: var(--ink2);
   font-variant-numeric: tabular-nums;
+}
+
+.setup-drag-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 36px;
+  color: var(--ink3);
+  cursor: grab;
+  touch-action: none;
+}
+
+.setup-drag-grip:active {
+  cursor: grabbing;
 }
 
 .setup-name-input {
@@ -197,7 +222,6 @@
   gap: 10px;
 }
 
-/* 手機與窄平板單欄排列（依座號 1 → 12 由上往下） */
 @media (max-width: 740px) {
   .setup-view {
     padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 24px);
@@ -227,8 +251,8 @@
     align-items: stretch;
   }
   .setup-footer-left {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
   }
   .setup-footer .btn-lg {
     width: 100%;

@@ -1,0 +1,237 @@
+/* 桌次座位拖曳排位樣式 ＋ 就地圍圈純計時模式（以家長為中心順／逆時針）樣式 */
+
+/* 頂端雙模式分段切換器 */
+.mode-seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.mode-seg-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--ink2);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.mode-seg-btn.is-active {
+  background: var(--btn);
+  color: var(--btn-ink);
+}
+
+.arrange-btn.is-active {
+  background: var(--sage);
+  border-color: var(--sage);
+  color: #FBFAF7;
+}
+
+/* 桌次拖曳換座位回饋 */
+.ring-seat.is-movable-seat {
+  touch-action: none;
+}
+
+.ring-seat.is-arranging.is-movable-seat {
+  border: 1.5px dashed var(--line-strong);
+  background: var(--surface-soft);
+  padding: 4px 10px;
+  cursor: grab;
+}
+
+.ring-seat.is-arranging.is-locked-seat {
+  opacity: .72;
+  cursor: not-allowed;
+}
+
+.ring-seat.is-empty-slot {
+  border: 1.5px dashed var(--ink3);
+  background: var(--surface-soft);
+  color: var(--ink3);
+  font-size: 16px;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.ring-seat.is-drag-source {
+  opacity: .35;
+}
+
+.ring-seat.is-drop-over {
+  border: 2px solid var(--sage) !important;
+  background: var(--halo) !important;
+  transform: scale(1.04);
+}
+
+.seat-drag-ghost {
+  position: fixed;
+  z-index: 999;
+  transform: translate(-50%, -65%);
+  padding: 8px 20px;
+  border-radius: 999px;
+  background: var(--btn);
+  color: var(--btn-ink);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .26);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* 就地圍圈工具列 */
+.circle-toolbar {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 0;
+  z-index: 4;
+}
+
+.circle-count-ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.circle-step-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circle-step-btn:hover {
+  background: var(--line);
+}
+
+.circle-count-text {
+  min-width: 48px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 圍圈純圓點環繞層（不顯示人名，以 6 點鐘家長為起點） */
+.circle-nodes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.circle-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 0;
+  background: none;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 150ms ease;
+}
+
+.circle-node:active {
+  transform: translate(-50%, -50%) scale(.93);
+}
+
+.circle-node-dot {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid var(--ink3);
+  background: var(--surface-soft);
+  color: var(--ink2);
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 180ms ease;
+}
+
+.circle-node.is-done .circle-node-dot {
+  border-color: var(--sage);
+  background: var(--sage);
+  color: #FBFAF7;
+}
+
+.circle-node.is-current .circle-node-dot {
+  width: 50px;
+  height: 50px;
+  border: 0;
+  background: var(--sage);
+  color: #FBFAF7;
+  font-size: 20px;
+  box-shadow: 0 0 0 8px var(--halo);
+}
+
+.app[data-mode="warn"] .circle-node.is-current .circle-node-dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 8px var(--warn-halo);
+}
+
+.circle-node.is-current.is-over .circle-node-dot {
+  background: var(--over);
+  box-shadow: 0 0 0 8px var(--over-halo);
+}
+
+.circle-parent-pill {
+  height: 24px;
+  font-size: 14px;
+  padding: 0 10px;
+}
+
+.circle-start-btn {
+  margin-top: 20px;
+}
+
+.btn-dial-next {
+  height: 58px;
+  padding: 0 28px 0 24px;
+  border: 0;
+  background: var(--sage);
+  color: #FBFAF7;
+  font-size: 20px;
+}
+
+@media (max-width: 700px) {
+  .hide-narrow { display: none; }
+  .arrange-btn { display: none; }
+  .timer-topbar { flex-wrap: wrap; gap: 10px; }
+  .timer-topbar-right { gap: 8px; margin-left: auto; }
+  .circle-nodes-layer { display: none !important; }
+  .btn-dial-next { height: 46px; font-size: 16px; padding: 0 18px; }
+  .circle-start-btn { height: 48px; font-size: 17px; margin-top: 14px; }
+}

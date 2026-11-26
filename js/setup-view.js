@@ -1,31 +1,34 @@
-/* 名單設定畫面：課程名稱、家庭／組別、12 座位輸入與性別切換、一次貼上、多組切換 */
+/* 名單設定畫面：
+   - 第 1 格永遠是「家長」(index 0)，第 2 格永遠是「副家長」(index 1)
+   - 第 3~12 格為組員，支援拖曳手把調整順序
+   - 提供「直接圍圈計時（不填名單）」一鍵入口 */
 
 import { cleanPersonName, cleanText, PARENT_INDEX, parseRosterText, SUB_PARENT_INDEX, TOTAL_SEATS } from './codec.js';
 import { createIcon } from './icons.js';
-import { formatGroupTitle, Store } from './store.js';
+import { formatGroupTitle, isLockedRoleIndex, Store } from './store.js';
 
 const IME_SETTLE_MS = 100;
 
-export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, announce }) {
+export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onStartCircle, announce }) {
   const courseInput = root.querySelector('#courseInput');
   const familyInput = root.querySelector('#familyInput');
   const seatCountLabel = root.querySelector('#setupSeatCount');
   const seatsGrid = root.querySelector('#setupSeatsGrid');
   const pasteBtn = root.querySelector('#openPasteBtn');
   const ocrBtn = root.querySelector('#openOcrBtn');
+  const circleDirectBtn = root.querySelector('#startCircleDirectBtn');
   const finishBtn = root.querySelector('#finishSetupBtn');
   const backToTimerBtn = root.querySelector('#backToTimerBtn');
   const groupSelect = root.querySelector('#setupGroupSelect');
   const newGroupBtn = root.querySelector('#setupNewGroupBtn');
 
-  // 一次貼上彈窗元素
   const pasteTextarea = pasteModal.querySelector('#pasteTextarea');
   const pasteApplyBtn = pasteModal.querySelector('#pasteApplyBtn');
   const pasteCloseBtns = pasteModal.querySelectorAll('[data-paste-close]');
 
-  // 注入按鈕 SVG 圖示
   ocrBtn.prepend(createIcon('camera', { size: 20, className: 'btn-ico' }));
   pasteBtn.prepend(createIcon('paste', { size: 20, className: 'btn-ico' }));
+  circleDirectBtn.prepend(createIcon('cw', { size: 18, className: 'btn-ico' }));
   newGroupBtn.prepend(createIcon('plus', { size: 16, className: 'btn-ico' }));
 
   let composing = false;
@@ -36,18 +39,18 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
   root.addEventListener('compositionstart', () => { composing = true; });
   root.addEventListener('compositionend', () => { composing = false; compEndedAt = Date.now(); });
 
-  // 建立 12 個固定座位列 DOM（左欄 1~6、右欄 7~12，第 2 位副家長、第 8 位家長）
   const rowRefs = [];
   const frag = document.createDocumentFragment();
 
   for (let idx = 0; idx < TOTAL_SEATS; idx++) {
     const slotNum = idx + 1;
-    const isSub = idx === SUB_PARENT_INDEX;
     const isParent = idx === PARENT_INDEX;
-    const roleText = isSub ? '副家長' : isParent ? '家長' : '';
+    const isSub = idx === SUB_PARENT_INDEX;
+    const roleText = isParent ? '家長' : isSub ? '副家長' : '';
+    const lockedRole = isLockedRoleIndex(idx);
 
     const row = document.createElement('div');
-    row.className = 'setup-seat-row';
+    row.className = 'setup-seat-row' + (lockedRole ? ' is-role-locked' : ' is-draggable-member');
     row.dataset.index = String(idx);
 
     const lead = document.createElement('span');
@@ -58,7 +61,14 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
       pill.textContent = roleText;
       lead.appendChild(pill);
     } else {
-      lead.textContent = String(slotNum);
+      const grip = document.createElement('span');
+      grip.className = 'setup-drag-grip';
+      grip.title = '拖曳調整組員座位順序';
+      grip.dataset.dragHandle = 'true';
+      grip.appendChild(createIcon('grip', { size: 15 }));
+      const num = document.createElement('span');
+      num.textContent = String(slotNum);
+      lead.append(grip, num);
     }
 
     const input = document.createElement('input');
@@ -68,7 +78,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
     input.autocomplete = 'off';
     input.enterKeyHint = idx === TOTAL_SEATS - 1 ? 'done' : 'next';
     input.placeholder = roleText ? `${roleText}姓名` : '輸入姓名';
-    input.setAttribute('aria-label', roleText ? `${roleText} 姓名` : `座位 ${slotNum} 姓名`);
+    input.setAttribute('aria-label', roleText ? `${slotNum} ${roleText}姓名` : `座位 ${slotNum} 姓名`);
 
     const genderWrap = document.createElement('div');
     genderWrap.className = 'setup-gender-group';
@@ -99,6 +109,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
       const cleaned = cleanPersonName(input.value);
       g.seats[idx].name = cleaned;
       if (!cleaned) g.seats[idx].done = false;
+      Store.syncCircleTotalFromRoster(g);
       Store.save();
       syncHeaderStats();
     });
@@ -123,6 +134,46 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
     });
   }
   seatsGrid.replaceChildren(frag);
+
+  // 名單設定頁第 3~12 格組員支援拖曳手把交換位置（第 1 格家長、第 2 格副家長固定不動）
+  let rowDrag = null;
+  seatsGrid.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('[data-drag-handle]');
+    if (!handle) return;
+    const row = handle.closest('.setup-seat-row');
+    const fromIdx = Number(row?.dataset.index);
+    if (!Number.isInteger(fromIdx) || isLockedRoleIndex(fromIdx)) return;
+
+    e.preventDefault();
+    seatsGrid.setPointerCapture(e.pointerId);
+    row.classList.add('is-dragging');
+    rowDrag = { pointerId: e.pointerId, fromIdx, overIdx: fromIdx };
+  });
+
+  seatsGrid.addEventListener('pointermove', (e) => {
+    if (!rowDrag || e.pointerId !== rowDrag.pointerId) return;
+    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+    const targetRow = elUnder?.closest?.('.setup-seat-row');
+    const idx = targetRow ? Number(targetRow.dataset.index) : -1;
+    const validIdx = Number.isInteger(idx) && idx >= 2 ? idx : rowDrag.fromIdx;
+    if (validIdx !== rowDrag.overIdx) {
+      rowRefs.forEach((r, i) => r.row.classList.toggle('is-drop-target', i === validIdx && i !== rowDrag.fromIdx));
+      rowDrag.overIdx = validIdx;
+    }
+  });
+
+  const finishRowDrag = (e) => {
+    if (!rowDrag || e.pointerId !== rowDrag.pointerId) return;
+    const { fromIdx, overIdx } = rowDrag;
+    rowDrag = null;
+    rowRefs.forEach((r) => r.row.classList.remove('is-dragging', 'is-drop-target'));
+    if (fromIdx !== overIdx && Store.swapMemberSeats(fromIdx, overIdx)) {
+      render();
+      announce(`已將座位 ${fromIdx + 1} 與座位 ${overIdx + 1} 互換`);
+    }
+  };
+  seatsGrid.addEventListener('pointerup', finishRowDrag);
+  seatsGrid.addEventListener('pointercancel', finishRowDrag);
 
   function syncRowGender(idx, gender) {
     const { btnF, btnM } = rowRefs[idx];
@@ -153,7 +204,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
     const g = Store.getActiveGroup();
     const filled = Store.activeSeats(g).length;
     seatCountLabel.textContent = filled > 0 ? `座位名單 · ${filled} 人` : `座位名單 · ${TOTAL_SEATS} 座位`;
-    backToTimerBtn.hidden = filled === 0;
+    backToTimerBtn.hidden = filled === 0 && g.shareMode !== 'circle';
     syncGroupSelect();
   }
 
@@ -170,22 +221,18 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
   }
 
   courseInput.addEventListener('input', () => {
-    const g = Store.getActiveGroup();
-    g.course = cleanText(courseInput.value, 30);
+    Store.getActiveGroup().course = cleanText(courseInput.value, 30);
     Store.save();
     syncGroupSelect();
   });
 
   familyInput.addEventListener('input', () => {
-    const g = Store.getActiveGroup();
-    g.family = cleanText(familyInput.value, 30);
+    Store.getActiveGroup().family = cleanText(familyInput.value, 30);
     Store.save();
     syncGroupSelect();
   });
 
-  groupSelect.addEventListener('change', () => {
-    if (Store.switchGroup(groupSelect.value)) render();
-  });
+  groupSelect.addEventListener('change', () => { if (Store.switchGroup(groupSelect.value)) render(); });
 
   newGroupBtn.addEventListener('click', () => {
     Store.createAndSwitchGroup('', '');
@@ -196,17 +243,10 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
 
   function applyBulkRosterText(rawText) {
     const parsed = parseRosterText(rawText);
-    if (!parsed.count) {
-      announce('未解析到有效姓名，請確認每行一個名字');
-      return;
-    }
+    if (!parsed.count) { announce('未解析到有效姓名，請確認每行一個名字'); return; }
     const g = Store.getActiveGroup();
     Store.applyImportedGroup(
-      {
-        course: parsed.course || g.course,
-        family: parsed.family || g.family,
-        seats: parsed.seats,
-      },
+      { course: parsed.course || g.course, family: parsed.family || g.family, seats: parsed.seats },
       { keepDone: true, targetGroupId: g.id }
     );
     render();
@@ -227,22 +267,34 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartSharing, ann
 
   pasteCloseBtns.forEach((b) => b.addEventListener('click', () => { pasteModal.hidden = true; }));
   pasteModal.addEventListener('click', (e) => { if (e.target === pasteModal) pasteModal.hidden = true; });
-
   ocrBtn.addEventListener('click', () => onOpenOcr());
 
-  const tryFinish = () => {
+  circleDirectBtn.addEventListener('click', () => {
+    const g = Store.getActiveGroup();
+    g.shareMode = 'circle';
+    Store.syncCircleTotalFromRoster(g);
+    Store.save();
+    onStartCircle();
+  });
+
+  finishBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
     if (!Store.hasActiveMembers(g)) {
       rowRefs[0].input.focus();
-      announce('請至少輸入一位成員姓名再開始分享');
+      announce('請輸入姓名，或點選「直接圍圈計時」');
       return;
     }
+    g.shareMode = 'table';
+    Store.syncCircleTotalFromRoster(g);
     Store.save();
-    onStartSharing();
-  };
+    onStartTable();
+  });
 
-  finishBtn.addEventListener('click', tryFinish);
-  backToTimerBtn.addEventListener('click', tryFinish);
+  backToTimerBtn.addEventListener('click', () => {
+    const g = Store.getActiveGroup();
+    if (g.shareMode === 'circle') onStartCircle();
+    else onStartTable();
+  });
 
   return { render, applyBulkRosterText };
 }

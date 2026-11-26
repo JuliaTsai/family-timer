@@ -1,4 +1,4 @@
-/* 計時狀態機：以系統時間差精準倒數、提醒語音與超時進度計算 */
+/* 計時狀態機：同時支援「桌次座位模式（依人名）」與「就地圍圈純計時模式（以家長為中心順／逆時針，不看人名）」 */
 
 import { cancelSoundPreview, playTimeUpCue, Voice, Wake, WARN_VOICE_VOLUME } from './audio.js';
 import { Store } from './store.js';
@@ -13,9 +13,16 @@ export function fmtClock(totalSec) {
   return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
 }
 
+/** 計算圍圈模式下第 pos 個圓點對應的分享順位標籤（以 0=家長 為第 1 位，依順／逆時針編號） */
+export function circleTurnNumber(posIndex, total, direction) {
+  if (posIndex === 0) return 1;
+  return direction === 'cw' ? posIndex + 1 : total - posIndex + 1;
+}
+
 export function createTimerEngine({ onTick, onStateChange, announce }) {
   const state = {
-    slotIndex: null, // 0..11
+    targetKind: null, // 'table' | 'circle' | null
+    slotIndex: null,  // table: 0..11; circle: 0..total-1 (0 = 6點鐘家長起點，順時針遞增角度)
     running: false,
     accumulated: 0,
     runStart: 0,
@@ -31,7 +38,7 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
   }
 
   function currentSeat() {
-    if (state.slotIndex === null) return null;
+    if (state.targetKind !== 'table' || state.slotIndex === null) return null;
     const g = Store.getActiveGroup();
     const s = g.seats[state.slotIndex];
     return s && s.name ? s : null;
@@ -62,45 +69,41 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
     }
   }
 
-  function tick() {
-    checkCues();
-    onTick();
-  }
-
-  function startLoop() {
-    if (state.intervalId === null) state.intervalId = setInterval(tick, TICK_MS);
-  }
-
+  function tick() { checkCues(); onTick(); }
+  function startLoop() { if (state.intervalId === null) state.intervalId = setInterval(tick, TICK_MS); }
   function stopLoop() {
-    if (state.intervalId !== null) {
-      clearInterval(state.intervalId);
-      state.intervalId = null;
-    }
+    if (state.intervalId !== null) { clearInterval(state.intervalId); state.intervalId = null; }
   }
 
   function clear() {
     stopLoop();
-    state.slotIndex = null;
-    state.running = false;
-    state.accumulated = 0;
-    state.runStart = 0;
-    state.spoke20 = false;
-    state.rang0 = false;
+    Object.assign(state, { targetKind: null, slotIndex: null, running: false, accumulated: 0, runStart: 0, spoke20: false, rang0: false });
     cancelSoundPreview();
     Wake.sync();
   }
 
+  function markCurrentDoneInternal(g) {
+    if (state.slotIndex === null) return;
+    if (state.targetKind === 'table') {
+      const prev = g.seats[state.slotIndex];
+      if (prev?.name) prev.done = true;
+    } else if (state.targetKind === 'circle' && !g.circle.done.includes(state.slotIndex)) {
+      g.circle.done.push(state.slotIndex);
+    }
+  }
+
+  // ===== 桌次座位模式操作 =====
   function startSeat(slotIndex) {
     const g = Store.getActiveGroup();
     const seat = g.seats[slotIndex];
     if (!seat || !seat.name) return;
 
-    const prev = currentSeat();
-    if (prev && state.slotIndex !== slotIndex) {
-      prev.done = true;
+    if (state.slotIndex !== slotIndex || state.targetKind !== 'table') {
+      markCurrentDoneInternal(g);
     }
 
     clear();
+    state.targetKind = 'table';
     state.slotIndex = slotIndex;
     state.running = true;
     state.runStart = Date.now();
@@ -116,7 +119,7 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
     const g = Store.getActiveGroup();
     const seat = g.seats[slotIndex];
     if (!seat || !seat.name) return false;
-    if (state.slotIndex === slotIndex) return false;
+    if (state.targetKind === 'table' && state.slotIndex === slotIndex) return false;
 
     if (seat.done) {
       seat.done = false;
@@ -127,6 +130,80 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
     }
     startSeat(slotIndex);
     return true;
+  }
+
+  // ===== 就地圍圈純計時操作（不看人名，以家長 0 為起點，順／逆時針推進） =====
+  function startCircleIndex(posIndex) {
+    const g = Store.getActiveGroup();
+    const total = g.circle.total;
+    const idx = ((posIndex % total) + total) % total;
+
+    if (state.targetKind === 'circle' && state.slotIndex !== null && state.slotIndex !== idx) {
+      markCurrentDoneInternal(g);
+    }
+
+    clear();
+    state.targetKind = 'circle';
+    state.slotIndex = idx;
+    state.running = true;
+    state.runStart = Date.now();
+    g.circle.done = g.circle.done.filter((x) => x !== idx);
+    Store.save();
+    startLoop();
+    Wake.sync();
+    onStateChange();
+    const turn = circleTurnNumber(idx, total, g.circle.direction);
+    announce(`第 ${turn} 位開始分享`);
+  }
+
+  function toggleCircleDotOrStart(posIndex) {
+    const g = Store.getActiveGroup();
+    if (state.targetKind === 'circle' && state.slotIndex === posIndex) return;
+    if (g.circle.done.includes(posIndex)) {
+      g.circle.done = g.circle.done.filter((x) => x !== posIndex);
+      Store.save();
+      onStateChange();
+      return;
+    }
+    startCircleIndex(posIndex);
+  }
+
+  /** 圍圈模式：開始第一位，或結束目前這位並自動沿順／逆時針跳下一位未分享者 */
+  function startOrAdvanceCircle() {
+    const g = Store.getActiveGroup();
+    const { total, direction } = g.circle;
+    const step = direction === 'cw' ? 1 : -1;
+
+    if (state.targetKind === 'circle' && state.slotIndex !== null) {
+      const from = state.slotIndex;
+      markCurrentDoneInternal(g);
+      clear();
+      // 尋找順／逆時針下一顆尚未分享的圓點
+      for (let k = 1; k < total; k++) {
+        const cand = (((from + step * k) % total) + total) % total;
+        if (!g.circle.done.includes(cand)) {
+          startCircleIndex(cand);
+          return;
+        }
+      }
+      // 全部皆已分享完畢
+      Store.save();
+      onStateChange();
+      announce('全組圍圈分享完畢');
+      return;
+    }
+
+    // 尚未有人計時中：從家長 (0) 起算找第一位尚未分享者（若已全滿則清零重來）
+    if (g.circle.done.length >= total) {
+      g.circle.done = [];
+    }
+    for (let k = 0; k < total; k++) {
+      const cand = (((0 + step * k) % total) + total) % total;
+      if (!g.circle.done.includes(cand)) {
+        startCircleIndex(cand);
+        return;
+      }
+    }
   }
 
   function pause() {
@@ -150,27 +227,31 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
   }
 
   function endCurrent() {
-    const seat = currentSeat();
-    if (seat) seat.done = true;
+    const g = Store.getActiveGroup();
+    markCurrentDoneInternal(g);
     clear();
     Store.save();
     onStateChange();
-    if (seat) announce(`${seat.name} 分享結束`);
+    announce('分享結束');
   }
 
   function computeClock() {
     const g = Store.getActiveGroup();
-    const seat = currentSeat();
-    if (!seat) {
-      return {
-        mode: 'idle',
-        paused: false,
-        speaker: '',
-        statusLabel: '',
-        clockText: fmtClock(g.duration),
-        pct: 0,
-      };
+    const isCircle = g.shareMode === 'circle';
+    let speakerLabel = '';
+
+    if (isCircle && state.targetKind === 'circle' && state.slotIndex !== null) {
+      const turn = circleTurnNumber(state.slotIndex, g.circle.total, g.circle.direction);
+      speakerLabel = state.slotIndex === 0 ? '家長（第 1 位）' : `第 ${turn} 位`;
+    } else if (!isCircle) {
+      const seat = currentSeat();
+      if (seat) speakerLabel = seat.name;
     }
+
+    if (!speakerLabel) {
+      return { mode: 'idle', paused: false, speaker: '', statusLabel: '', clockText: fmtClock(g.duration), pct: 0 };
+    }
+
     const totalMs = g.duration * 1000;
     const remMs = totalMs - elapsedMs();
     const paused = !state.running;
@@ -180,7 +261,7 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
       return {
         mode: secs <= WARN_SECONDS ? 'warn' : 'ok',
         paused,
-        speaker: seat.name,
+        speaker: speakerLabel,
         statusLabel: paused ? '已暫停' : '發言中',
         clockText: fmtClock(secs),
         pct: (remMs / totalMs) * 100,
@@ -192,7 +273,7 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
     return {
       mode: 'over',
       paused,
-      speaker: seat.name,
+      speaker: speakerLabel,
       statusLabel: paused ? '已暫停' : '已超時',
       clockText: '+' + fmtClock(Math.floor(overMs / 1000)),
       pct: Math.min(100, (overMs / fullMs) * 100),
@@ -203,8 +284,10 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
     isActive,
     isRunning: () => state.running,
     activeSlotIndex: () => state.slotIndex,
-    currentSeat,
+    activeTargetKind: () => state.targetKind,
     toggleSeatOrStart,
+    toggleCircleDotOrStart,
+    startOrAdvanceCircle,
     pause,
     resume,
     endCurrent,

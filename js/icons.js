@@ -50,6 +50,55 @@ const ICON_DEFS = {
     fill: 'currentColor',
     paths: [['rect', { x: '3', y: '3', width: '10', height: '10', rx: '2.4' }]],
   },
+  skipNext: {
+    viewBox: '0 0 20 20',
+    fill: 'currentColor',
+    paths: [
+      ['path', { d: 'M3.5 4.2v11.6a.8.8 0 0 0 1.24.67l8.5-5.8a.8.8 0 0 0 0-1.34l-8.5-5.8a.8.8 0 0 0-1.24.67Z' }],
+      ['rect', { x: '14.5', y: '4', width: '2.4', height: '12', rx: '1.1' }],
+    ],
+  },
+  grip: {
+    viewBox: '0 0 16 16',
+    fill: 'currentColor',
+    paths: [
+      ['circle', { cx: '5.5', cy: '3.5', r: '1.2' }],
+      ['circle', { cx: '10.5', cy: '3.5', r: '1.2' }],
+      ['circle', { cx: '5.5', cy: '8', r: '1.2' }],
+      ['circle', { cx: '10.5', cy: '8', r: '1.2' }],
+      ['circle', { cx: '5.5', cy: '12.5', r: '1.2' }],
+      ['circle', { cx: '10.5', cy: '12.5', r: '1.2' }],
+    ],
+  },
+  swap: {
+    viewBox: '0 0 20 20',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.7',
+    paths: [
+      ['path', { d: 'M4 7h12l-3-3M16 13H4l3 3' }],
+    ],
+  },
+  cw: {
+    viewBox: '0 0 20 20',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.8',
+    paths: [
+      ['path', { d: 'M16.5 10a6.5 6.5 0 1 1-1.9-4.6L16.5 7' }],
+      ['path', { d: 'M16.5 3.2V7h-3.8' }],
+    ],
+  },
+  ccw: {
+    viewBox: '0 0 20 20',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.8',
+    paths: [
+      ['path', { d: 'M3.5 10a6.5 6.5 0 1 0 1.9-4.6L3.5 7' }],
+      ['path', { d: 'M3.5 3.2V7h3.8' }],
+    ],
+  },
   check: {
     viewBox: '0 0 20 20',
     fill: 'none',
@@ -129,16 +178,6 @@ const ICON_DEFS = {
     paths: [
       ['path', { d: 'M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7' }],
       ['path', { d: 'M6.5 7l.8 12.2A2 2 0 0 0 9.3 21h5.4a2 2 0 0 0 2-1.8L17.5 7' }],
-    ],
-  },
-  rotate: {
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: '1.8',
-    paths: [
-      ['path', { d: 'M21 12a9 9 0 1 1-2.64-6.36L21 8' }],
-      ['path', { d: 'M21 3v5h-5' }],
     ],
   },
 };

@@ -1,12 +1,15 @@
-/* 本機狀態管理（localStorage 多組別獨立存檔，無伺服器、零預設假名單） */
+/* 本機狀態管理（localStorage 多組別獨立存檔）
+   - seats[0] 永遠為「家長」，seats[1] 永遠為「副家長」，seats[2..11] 為 10 個可拖曳換位之組員槽
+   - 支援「桌次座位 (table)」與「就地圍圈純計時 (circle：以家長為起點，順時針／逆時針，不看人名)」雙模式 */
 
-import { cleanPersonName, cleanText, emptySeats, normalizeGender, TOTAL_SEATS } from './codec.js';
+import { cleanPersonName, cleanText, emptySeats, normalizeGender, PARENT_INDEX, SUB_PARENT_INDEX, TOTAL_SEATS } from './codec.js';
 
 export const STORAGE_KEY = 'familyTimer.v2';
 export const DEFAULT_DURATION = 60;
 export const MIN_DURATION = 5;
 export const MAX_DURATION = 59 * 60 + 55;
 export const DEFAULT_OVERTIME_FULL = 30;
+const SEAT_SCHEMA_VERSION = 2; // v2: 0=家長, 1=副家長
 
 const storage = (() => {
   try {
@@ -36,6 +39,12 @@ export function clampOvertimeFull(sec) {
   return Math.min(1800, Math.round(n));
 }
 
+export function clampCircleTotal(n) {
+  const v = Math.round(Number(n));
+  if (!Number.isFinite(v)) return TOTAL_SEATS;
+  return Math.min(24, Math.max(2, v));
+}
+
 export function normalizeGroupIdentity(course, family) {
   const c = cleanText(course, 30).toLowerCase();
   const f = cleanText(family, 30).toLowerCase();
@@ -50,7 +59,11 @@ export function formatGroupTitle(group) {
   return f || c || '未命名小組';
 }
 
-function sanitizeSeats(rawSeats) {
+export function isLockedRoleIndex(idx) {
+  return idx === PARENT_INDEX || idx === SUB_PARENT_INDEX;
+}
+
+function sanitizeSeats(rawSeats, rawSchemaVersion) {
   const base = emptySeats();
   if (!Array.isArray(rawSeats)) return base;
   rawSeats.slice(0, TOTAL_SEATS).forEach((s, idx) => {
@@ -63,24 +76,47 @@ function sanitizeSeats(rawSeats) {
       done: Boolean(name && s.done === true),
     };
   });
+  // 相容升級：舊版 schema (家長在 index 7) 自動將 index 7 與 index 0 對調
+  if (rawSchemaVersion !== SEAT_SCHEMA_VERSION && (base[7].name || base[0].name)) {
+    const oldZero = { ...base[0], slot: 8 };
+    const oldParent = { ...base[7], slot: 1 };
+    base[0] = oldParent;
+    base[7] = oldZero;
+  }
   return base;
+}
+
+function sanitizeCircle(rawCircle, activeMemberCount) {
+  const defaultTotal = activeMemberCount >= 2 ? activeMemberCount : TOTAL_SEATS;
+  const total = clampCircleTotal(rawCircle?.total ?? defaultTotal);
+  const direction = rawCircle?.direction === 'ccw' ? 'ccw' : 'cw';
+  const done = Array.isArray(rawCircle?.done)
+    ? rawCircle.done.filter((i) => Number.isInteger(i) && i >= 0 && i < total)
+    : [];
+  return { direction, total, done: [...new Set(done)] };
 }
 
 function sanitizeGroup(raw, fallbackId) {
   const id = typeof raw?.id === 'string' && raw.id ? raw.id : fallbackId || makeId();
+  const seats = sanitizeSeats(raw?.seats, raw?.seatSchema);
+  const activeCount = seats.filter((s) => s.name).length;
+  const shareMode = raw?.shareMode === 'circle' ? 'circle' : 'table';
   return {
     id,
+    seatSchema: SEAT_SCHEMA_VERSION,
     course: cleanText(raw?.course, 30),
     family: cleanText(raw?.family, 30),
     duration: clampDuration(raw?.duration),
     overtimeFullSec: clampOvertimeFull(raw?.overtimeFullSec),
+    shareMode,
+    circle: sanitizeCircle(raw?.circle, activeCount),
     updatedAt: Number(raw?.updatedAt) || Date.now(),
-    seats: sanitizeSeats(raw?.seats),
+    seats,
   };
 }
 
 export function createBlankGroup(course = '', family = '') {
-  return sanitizeGroup({ id: makeId(), course, family, seats: emptySeats() });
+  return sanitizeGroup({ id: makeId(), seatSchema: SEAT_SCHEMA_VERSION, course, family, seats: emptySeats() });
 }
 
 function loadStoreData() {
@@ -106,7 +142,7 @@ function loadStoreData() {
       }
     }
   } catch {
-    /* ignore corrupted data */
+    /* ignore */
   }
   const blank = createBlankGroup();
   return { activeGroupId: blank.id, groups: { [blank.id]: blank } };
@@ -186,27 +222,44 @@ export const Store = {
     const ids = Object.keys(db.groups);
     if (!db.groups[groupId]) return;
     if (ids.length <= 1) {
-      // 只剩最後一組時清空成新空白組
       const blank = createBlankGroup();
       db.groups = { [blank.id]: blank };
       db.activeGroupId = blank.id;
     } else {
       delete db.groups[groupId];
-      if (db.activeGroupId === groupId) {
-        db.activeGroupId = this.listGroups()[0].id;
-      }
+      if (db.activeGroupId === groupId) db.activeGroupId = this.listGroups()[0].id;
     }
     this.save();
   },
 
   /**
-   * 套用外部（排組雷達連結 / 貼上 / OCR）載入的名單：
-   * keepDone = true 時，同名成員保留原本的已分享狀態
+   * 交換兩個組員座位（第 3~12 格，即 index 2..11）：
+   * 家長 (index 0) 與副家長 (index 1) 固定鎖定不可交換。
    */
+  swapMemberSeats(idxA, idxB) {
+    if (idxA === idxB) return false;
+    if (isLockedRoleIndex(idxA) || isLockedRoleIndex(idxB)) return false;
+    const g = this.getActiveGroup();
+    if (!g.seats[idxA] || !g.seats[idxB]) return false;
+    const a = { ...g.seats[idxA], slot: idxB + 1 };
+    const b = { ...g.seats[idxB], slot: idxA + 1 };
+    g.seats[idxA] = b;
+    g.seats[idxB] = a;
+    this.save();
+    return true;
+  },
+
+  syncCircleTotalFromRoster(group = this.getActiveGroup()) {
+    const count = this.activeSeats(group).length;
+    if (count >= 2) {
+      group.circle.total = clampCircleTotal(count);
+      group.circle.done = group.circle.done.filter((i) => i < group.circle.total);
+    }
+  },
+
   applyImportedGroup({ course, family, seats }, { keepDone = false, targetGroupId = null } = {}) {
     let target = (targetGroupId && db.groups[targetGroupId]) || this.findGroupByIdentity(course, family);
     if (!target) {
-      // 若目前作用中組別是全空的草稿，直接覆用該草稿，不製造多餘空組
       const cur = this.getActiveGroup();
       if (!this.hasActiveMembers(cur) && !cur.course && !cur.family) {
         target = cur;
@@ -223,10 +276,12 @@ export const Store = {
     }
     if (course) target.course = cleanText(course, 30);
     if (family) target.family = cleanText(family, 30);
-    target.seats = sanitizeSeats(seats).map((s) => ({
+    target.seatSchema = SEAT_SCHEMA_VERSION;
+    target.seats = sanitizeSeats(seats, SEAT_SCHEMA_VERSION).map((s) => ({
       ...s,
       done: Boolean(keepDone && s.name && prevDoneByName.get(s.name)),
     }));
+    this.syncCircleTotalFromRoster(target);
     db.activeGroupId = target.id;
     this.save();
     return target;
@@ -234,7 +289,11 @@ export const Store = {
 
   resetDoneStatus() {
     const g = this.getActiveGroup();
-    g.seats.forEach((s) => { s.done = false; });
+    if (g.shareMode === 'circle') {
+      g.circle.done = [];
+    } else {
+      g.seats.forEach((s) => { s.done = false; });
+    }
     this.save();
   },
 };
