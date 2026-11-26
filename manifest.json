@@ -1,20 +1,31 @@
 {
-  "name": "小組分享計時",
-  "short_name": "分享計時",
-  "description": "小組分享用的倒數計時器，可離線使用。",
+  "name": "家庭分享計時",
+  "short_name": "家庭計時",
+  "description": "方便小組家長、副家長帶分享時使用的離線圓桌計時小程式，資料只存在這台裝置。",
   "lang": "zh-Hant-TW",
-  "dir": "ltr",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "any",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#F3F0E9",
+  "theme_color": "#F3F0E9",
   "icons": [
-    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "./icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

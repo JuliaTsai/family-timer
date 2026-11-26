@@ -3,163 +3,272 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="小組分享用的倒數計時器，可離線使用。">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="方便小組家長、副家長帶分享時使用的離線圓桌計時小程式，資料只存在這台裝置。">
+  <meta name="theme-color" content="#F3F0E9" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#252823" media="(prefers-color-scheme: dark)">
   <meta name="format-detection" content="telephone=no">
 
-  <!-- iOS home-screen web app -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="分享計時">
+  <meta name="apple-mobile-web-app-title" content="家庭分享計時">
   <link rel="apple-touch-icon" href="./icons/icon-180.png">
-
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
   <link rel="manifest" href="./manifest.json">
-  <link rel="stylesheet" href="./styles.css">
-  <title>小組分享計時</title>
+
+  <link rel="stylesheet" href="./styles/fonts.css">
+  <link rel="stylesheet" href="./styles/tokens.css">
+  <link rel="stylesheet" href="./styles/setup.css">
+  <link rel="stylesheet" href="./styles/timer.css">
+  <link rel="stylesheet" href="./styles/seats.css">
+  <link rel="stylesheet" href="./styles/panels.css">
+  <link rel="stylesheet" href="./styles/modals.css">
+  <title>家庭分享計時</title>
 </head>
 <body>
-  <div class="app" id="app" data-mode="idle" data-panel="closed">
+  <div class="app" id="app" data-view="setup" data-mode="idle" data-paused="false">
 
-    <!-- ===== Top bar: group logo (top-left) + 名單／座位／設定 panel toggle (top-right) ===== -->
-    <header class="topbar">
-      <img class="logo" src="./icons/logo.png" alt="心成" width="400" height="120" decoding="async">
-      <button type="button" class="btn panel-toggle" id="panelToggle"
-              aria-expanded="false" aria-controls="sidePanel">
-        <span class="panel-toggle-label" id="panelToggleLabel"><span aria-hidden="true">☰</span> 名單／座位／設定</span>
-        <span class="panel-toggle-progress" id="toggleProgress">已分享 0/0</span>
-      </button>
-    </header>
+    <!-- ==================== 1. 名單設定畫面 ==================== -->
+    <main class="setup-view" id="setupView" aria-label="名單設定">
+      <header class="setup-topbar">
+        <div class="setup-title-group">
+          <h1 class="setup-title">名單設定</h1>
+          <select id="setupGroupSelect" class="group-select" aria-label="切換已儲存組別" hidden></select>
+          <button type="button" class="btn-pill btn-ghost btn-sm" id="setupNewGroupBtn" title="建立另一組名單">新增一組</button>
+        </div>
+        <div class="setup-status-right">
+          <span class="offline-pill">
+            <i class="offline-dot" aria-hidden="true"></i>
+            <span data-offline-label data-with-privacy="true">可離線 · 資料只存在這台裝置</span>
+          </span>
+          <button type="button" class="btn-pill btn-ghost btn-sm" id="backToTimerBtn" hidden>返回計時</button>
+        </div>
+      </header>
 
-    <!-- ===== Clock panel (Time Timer–style dial) ===== -->
-    <section class="clock-panel" id="clockPanel" aria-label="計時器">
-      <div class="dial" id="dial">
-        <div class="dial-pie" id="dialPie" aria-hidden="true"></div>
-        <div class="dial-tick" aria-hidden="true"></div>
-        <div class="dial-center">
-          <div class="dial-name" id="speakerName">點選名字開始</div>
-          <div class="clock" id="clock" role="timer" aria-live="off" aria-atomic="true">01:00</div>
-          <div class="status" id="status">準備</div>
-          <!-- 暫停／繼續 + 結束 live inside the dial (shown only while a timer is active) -->
-          <div class="dial-controls" id="dialControls">
-            <button type="button" class="btn btn-dial" id="pauseBtn" disabled>
-              <span class="btn-icon" aria-hidden="true" id="pauseIcon">❚❚</span>
-              <span id="pauseText">暫停</span>
-            </button>
-            <button type="button" class="btn btn-dial btn-end" id="endBtn" disabled>
-              <span class="btn-icon" aria-hidden="true">■</span>
-              <span>結束</span>
-            </button>
+      <div class="setup-body">
+        <div class="setup-meta-grid">
+          <label class="setup-field">
+            <span class="setup-field-label">課程名稱</span>
+            <input type="text" id="courseInput" class="setup-field-input" placeholder="例如 2-50" maxlength="30" autocomplete="off">
+          </label>
+          <label class="setup-field">
+            <span class="setup-field-label">家庭 / 組別</span>
+            <input type="text" id="familyInput" class="setup-field-input" placeholder="例如 第 16 家庭" maxlength="30" autocomplete="off">
+          </label>
+        </div>
+
+        <div class="setup-section-bar">
+          <span class="setup-section-title" id="setupSeatCount">座位名單 · 12 座位</span>
+          <span class="setup-section-note">直接輸入即可，不需要匯入</span>
+        </div>
+
+        <div class="setup-seats-grid" id="setupSeatsGrid" role="group" aria-label="12 個座位名單"></div>
+
+        <footer class="setup-footer">
+          <div class="setup-footer-left">
+            <button type="button" class="btn-pill btn-outline" id="openPasteBtn">一次貼上多個名字</button>
+            <button type="button" class="btn-pill btn-outline" id="openOcrBtn">拍照辨識名單</button>
+          </div>
+          <button type="button" class="btn-pill btn-solid btn-lg" id="finishSetupBtn">完成，開始分享</button>
+        </footer>
+      </div>
+    </main>
+
+    <!-- ==================== 2. 計時主畫面 ==================== -->
+    <main class="timer-view" id="timerView" aria-label="分享計時" hidden>
+      <header class="timer-topbar">
+        <button type="button" class="header-group-btn" id="headerGroupTrigger" title="切換組別或開啟設定">
+          <span class="course-pill" id="topCourseBadge" hidden></span>
+          <span class="family-heading" id="topFamilyTitle">家庭分享計時</span>
+        </button>
+        <div class="timer-topbar-right">
+          <span class="offline-pill">
+            <i class="offline-dot" aria-hidden="true"></i>
+            <span data-offline-label>可離線</span>
+          </span>
+          <button type="button" class="icon-circle-btn" id="openDrawerBtn" aria-label="名單、座位、設定" aria-expanded="false" aria-controls="settingsDrawer"></button>
+        </div>
+      </header>
+
+      <!-- 平板／筆電：960×800 等比環桌舞台；手機窄螢幕：上方圓盤＋下方名單 -->
+      <div class="stage-outer" id="stageOuter">
+        <div class="stage-canvas" id="stageCanvas">
+          <div class="dial-plate" id="dialPlate">
+            <svg class="dial-svg" viewBox="0 0 480 480" fill="none" aria-hidden="true">
+              <path class="dial-track" d="M240 1.5 H360 A118.5 118.5 0 0 1 478.5 120 V360 A118.5 118.5 0 0 1 360 478.5 H120 A118.5 118.5 0 0 1 1.5 360 V120 A118.5 118.5 0 0 1 120 1.5 Z"/>
+              <path class="dial-progress is-hidden" id="dialProgress" pathLength="100" d="M240 1.5 H360 A118.5 118.5 0 0 1 478.5 120 V360 A118.5 118.5 0 0 1 360 478.5 H120 A118.5 118.5 0 0 1 1.5 360 V120 A118.5 118.5 0 0 1 120 1.5 Z"/>
+            </svg>
+
+            <div class="dial-inner">
+              <span class="dial-hint" id="dialHint">點選名字開始</span>
+              <span class="dial-speaker" id="dialSpeaker" hidden></span>
+              <span class="dial-clock" id="dialClock" role="timer" aria-live="off">01:00</span>
+
+              <div class="dial-controls" id="dialControls" hidden>
+                <button type="button" class="btn-pill btn-dial-primary" id="pauseBtn" data-resume="false">
+                  <span id="pauseBtnText">暫停</span>
+                </button>
+                <button type="button" class="btn-pill btn-dial-end" id="endBtn">
+                  <span id="endBtnText">結束</span>
+                </button>
+              </div>
+
+              <div class="dial-progress-summary" role="group" aria-label="分享進度">
+                <div class="progress-dots" id="progressDots" aria-hidden="true"></div>
+                <span class="progress-text" id="progressSummary">已分享 0 / 0</span>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="paused-badge" id="pausedBadge" hidden>❚❚ 已暫停</div>
       </div>
 
-    </section>
-
-    <!-- ===== Seating chart (built by app.js): one card per person on their side.
-         v11: 前 top (前1 left) · 右 right (右1 top) · 後 bottom (後1 left) · 左 left (左1 top). ===== -->
-    <div class="seats" id="seats" role="group" aria-label="座位表" hidden></div>
-
-    <!-- ===== Settings & names (progress + reset live in the name-list header) ===== -->
-    <!-- Collapsed by default; opened with 名單／設定, auto-collapses when a timer starts -->
-    <section class="side" id="sidePanel" aria-label="設定與名單" hidden>
-      <!-- Hidden while someone is speaking -->
-      <div class="card settings-card" id="settingsCard">
-        <div class="settings-head">
-          <h2 class="card-title settings-title">每人分享時間</h2>
-          <button type="button" class="btn btn-secondary btn-small" id="testBellBtn" title="試音量大小：依實際順序與音量播放所有提示音——「剩下 20 秒」語音、叮咚、「時間到」語音。iPhone 請確認音量已開啟。" aria-label="試音量大小（依序播放「剩下 20 秒」、叮咚、「時間到」）">🔔 試音量大小</button>
-        </div>
-        <!-- Clock-style stepper: minutes ±1 分, seconds ±5 秒 -->
-        <div class="stepper" id="durationGroup" role="group" aria-label="調整每人分享時間">
-          <div class="stepper-col">
-            <button type="button" class="btn btn-step" id="minPlusBtn" data-step="60" aria-label="增加 1 分鐘">＋</button>
-            <div class="stepper-digit" id="durationMin" aria-hidden="true">1</div>
-            <button type="button" class="btn btn-step" id="minMinusBtn" data-step="-60" aria-label="減少 1 分鐘">−</button>
-          </div>
-          <div class="stepper-colon" aria-hidden="true">:</div>
-          <div class="stepper-col">
-            <button type="button" class="btn btn-step" id="secPlusBtn" data-step="5" aria-label="增加 5 秒">＋</button>
-            <div class="stepper-digit" id="durationSec" aria-hidden="true">00</div>
-            <button type="button" class="btn btn-step" id="secMinusBtn" data-step="-5" aria-label="減少 5 秒">−</button>
-          </div>
-          <div class="visually-hidden" id="durationPreview" aria-live="polite" aria-atomic="true">1 分 0 秒</div>
-        </div>
-        <div class="presets" id="presets" role="group" aria-label="快速選擇時間">
-          <button type="button" class="btn btn-chip" data-preset="60">1分</button>
-          <button type="button" class="btn btn-chip" data-preset="90">1分30秒</button>
-          <button type="button" class="btn btn-chip" data-preset="120">2分</button>
-          <button type="button" class="btn btn-chip" data-preset="150">2分30秒</button>
-          <button type="button" class="btn btn-chip" data-preset="180">3分</button>
-          <button type="button" class="btn btn-chip" data-preset="300">5分</button>
-        </div>
-      </div>
-
-      <div class="card list-card">
-        <!-- 編輯名單 header (replaces the normal header while editing) -->
-        <div class="edit-head" id="editHead" hidden>
-          <h2 class="card-title edit-title">編輯名單（排座位）</h2>
-          <button type="button" class="btn btn-primary btn-done" id="doneBtn">✓ 完成</button>
-        </div>
-        <div class="card-head" id="listHead">
-          <h2 class="card-title">分享名單</h2>
-          <button type="button" class="btn btn-switch" id="seatsToggle" role="switch" aria-checked="true">
-            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
-            <span>座位圖</span>
-          </button>
-          <div class="progress" id="progress" aria-live="polite">已分享 0/0</div>
-        </div>
-        <div class="list-actions" id="listActions">
-          <button type="button" class="btn btn-secondary btn-small" id="editBtn" aria-pressed="false">✎ 編輯名單</button>
-          <button type="button" class="btn btn-secondary btn-small" id="resetBtn" title="只把已分享狀態清掉並停止計時，名單保留" aria-label="全部重設分享狀態（名單保留）">↺ 全部重設</button>
-        </div>
-        <p class="hint" id="listHint">點名字開始計時；點灰色名字可恢復為未分享。</p>
-
-        <ol class="people" id="people"></ol>
-        <p class="empty" id="emptyMsg" hidden>名單是空的，請按「編輯名單」新增成員。</p>
-
-        <form class="add-form" id="addForm" hidden autocomplete="off">
-          <label class="visually-hidden" for="addInput">新增成員姓名</label>
-          <input type="text" id="addInput" class="text-input" placeholder="輸入姓名" maxlength="30" enterkeyhint="done">
-          <button type="submit" class="btn btn-primary">＋ 新增</button>
-        </form>
-        <!-- 編輯名單 only: clears ALL names (asks 是／否 in a dialog first) -->
-        <div class="edit-foot" id="editFoot" hidden>
-          <button type="button" class="btn btn-secondary btn-clear" id="clearMembersBtn">成員全部重設</button>
-        </div>
-      </div>
-    </section>
+      <!-- 手機直拿輔助座位名單 -->
+      <section class="mobile-seats" id="mobileSeatList" aria-label="點選成員開始計時"></section>
+    </main>
   </div>
 
-  <!-- 成員全部重設 confirmation (not window.confirm): 是 clears everyone, 否 / Esc cancels -->
-  <div class="modal" id="clearDialog" hidden>
-    <div class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="clearDialogTitle">
-      <h2 class="modal-title" id="clearDialogTitle">確定清除全部成員？</h2>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-modal btn-yes" id="clearYes">是</button>
-        <button type="button" class="btn btn-modal btn-no" id="clearNo">否</button>
+  <!-- ==================== 3. 設定與多組切換抽屜 ==================== -->
+  <div class="backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="settingsDrawer" aria-label="設定與組別管理" hidden>
+    <div class="drawer-head">
+      <h2 class="drawer-title">設定與名單</h2>
+      <button type="button" class="icon-circle-btn icon-circle-sm" id="closeDrawerBtn" aria-label="關閉設定"></button>
+    </div>
+
+    <div class="drawer-body">
+      <section class="panel-card">
+        <div class="panel-card-head">
+          <h3 class="panel-card-title">目前組別（只存在本機）</h3>
+        </div>
+        <select id="drawerGroupSelect" class="group-select group-select-full" aria-label="切換組別"></select>
+        <div class="panel-btn-row">
+          <button type="button" class="btn-pill btn-outline btn-sm" id="drawerEditSetupBtn">編輯名單 / 座位</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" id="drawerNewGroupBtn">新增另一組</button>
+          <button type="button" class="btn-pill btn-ghost btn-sm" id="drawerDeleteGroupBtn" title="刪除此組存檔">刪組</button>
+        </div>
+      </section>
+
+      <section class="panel-card" id="durationCard">
+        <div class="panel-card-head">
+          <h3 class="panel-card-title">每人分享時間</h3>
+          <button type="button" class="btn-pill btn-outline btn-sm" id="testBellBtn">試音量大小</button>
+        </div>
+        <div class="stepper" id="durationStepper" role="group" aria-label="調整每人分享時間">
+          <div class="stepper-col">
+            <button type="button" class="stepper-btn" data-step="60" aria-label="增加 1 分鐘">＋</button>
+            <span class="stepper-num" id="durationMin">1</span>
+            <button type="button" class="stepper-btn" data-step="-60" aria-label="減少 1 分鐘">−</button>
+          </div>
+          <span class="stepper-colon">:</span>
+          <div class="stepper-col">
+            <button type="button" class="stepper-btn" data-step="5" aria-label="增加 5 秒">＋</button>
+            <span class="stepper-num" id="durationSec">00</span>
+            <button type="button" class="stepper-btn" data-step="-5" aria-label="減少 5 秒">−</button>
+          </div>
+        </div>
+        <div class="chip-grid" id="durationPresets">
+          <button type="button" class="chip-btn" data-preset="60">1分</button>
+          <button type="button" class="chip-btn" data-preset="90">1分30秒</button>
+          <button type="button" class="chip-btn" data-preset="120">2分</button>
+          <button type="button" class="chip-btn" data-preset="150">2分30秒</button>
+          <button type="button" class="chip-btn" data-preset="180">3分</button>
+          <button type="button" class="chip-btn" data-preset="300">5分</button>
+        </div>
+
+        <div class="overtime-setting">
+          <span class="overtime-label">超時描邊繞滿一圈（緩衝時間）</span>
+          <div class="chip-row" id="overtimePresets">
+            <button type="button" class="chip-btn" data-overtime="30">30秒</button>
+            <button type="button" class="chip-btn" data-overtime="60">1分</button>
+            <button type="button" class="chip-btn" data-overtime="120">2分</button>
+            <button type="button" class="chip-btn" data-overtime="180">3分</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-card">
+        <div class="panel-card-head">
+          <h3 class="panel-card-title">組員清單</h3>
+          <button type="button" class="btn-pill btn-outline btn-sm" id="drawerResetDoneBtn">重設已分享</button>
+        </div>
+        <div class="drawer-people-grid" id="drawerPeopleList"></div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ==================== 4. 一次貼上多個名字彈窗 ==================== -->
+  <div class="modal-overlay" id="pasteModal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pasteModalTitle">
+      <div class="modal-head">
+        <h2 class="modal-title" id="pasteModalTitle">一次貼上多個名字</h2>
+        <button type="button" class="btn-pill btn-ghost btn-sm" data-paste-close>取消</button>
+      </div>
+      <p class="modal-hint">每行一個名字（支援含「家長／副家長」、「男／女」或編號文字，會自動解析對位；iPad 點擊輸入框也可直接用鍵盤「掃描文字」拍紙本）。</p>
+      <textarea id="pasteTextarea" class="paste-textarea" rows="10" placeholder="吳珮綺 女&#10;副家長 何弈翰 男&#10;林志威 男&#10;..."></textarea>
+      <div class="modal-foot">
+        <button type="button" class="btn-pill btn-outline" data-paste-close>關閉</button>
+        <button type="button" class="btn-pill btn-solid" id="pasteApplyBtn">填入座位</button>
       </div>
     </div>
   </div>
 
-  <!-- 編輯名單: side picker opened from a row's seat-label button (「前1 ▾」).
-       Anchored under / over that row on wide screens; a bottom sheet on phones. -->
-  <div class="picker-backdrop" id="sidePickerBackdrop" hidden></div>
-  <div class="side-picker" id="sidePicker" role="dialog" aria-labelledby="sidePickerTitle" hidden>
-    <h2 class="side-picker-title" id="sidePickerTitle">坐哪一邊？</h2>
-    <div class="side-picker-sides" id="sidePickerSides" role="group" aria-label="前、右、後、左">
-      <button type="button" class="btn btn-pick-side" data-side="前">前</button>
-      <button type="button" class="btn btn-pick-side" data-side="右">右</button>
-      <button type="button" class="btn btn-pick-side" data-side="後">後</button>
-      <button type="button" class="btn btn-pick-side" data-side="左">左</button>
+  <!-- ==================== 5. 紙本名單拍照 OCR 彈窗 ==================== -->
+  <div class="modal-overlay" id="ocrModal" hidden>
+    <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-labelledby="ocrModalTitle">
+      <div class="modal-head">
+        <h2 class="modal-title" id="ocrModalTitle">拍照辨識紙本名單</h2>
+        <button type="button" class="btn-pill btn-ghost btn-sm" data-ocr-close>關閉</button>
+      </div>
+      <p class="modal-hint" id="ocrStatus">拍下現場紙本印出來的名單，框選「姓名」欄位即可自動填入（本機辨識，照片不會上傳伺服器）。</p>
+
+      <div class="ocr-pick-row">
+        <label class="btn-pill btn-solid btn-sm ocr-file-btn">
+          <span>開啟相機拍照</span>
+          <input type="file" id="ocrCameraInput" accept="image/*" capture="environment" hidden>
+        </label>
+        <label class="btn-pill btn-outline btn-sm ocr-file-btn">
+          <span>從相簿選照片</span>
+          <input type="file" id="ocrAlbumInput" accept="image/*" hidden>
+        </label>
+        <button type="button" class="btn-pill btn-outline btn-sm" id="ocrRotateBtn" hidden>旋轉 90°</button>
+      </div>
+
+      <div class="ocr-stage-wrap" id="ocrStageWrap" hidden>
+        <div class="ocr-canvas-box">
+          <canvas id="ocrCanvas"></canvas>
+          <div class="ocr-crop-box" id="ocrCropBox">
+            <span class="ocr-handle ocr-handle-tl" data-handle="tl"></span>
+            <span class="ocr-handle ocr-handle-br" data-handle="br"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ocr-result-wrap" id="ocrResultWrap" hidden>
+        <label class="setup-field-label" for="ocrResultText">辨識結果（可直接微調錯字）</label>
+        <textarea id="ocrResultText" class="paste-textarea" rows="6"></textarea>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" class="btn-pill btn-outline" data-ocr-close>取消</button>
+        <button type="button" class="btn-pill btn-outline" id="ocrRunBtn" disabled>開始辨識文字</button>
+        <button type="button" class="btn-pill btn-solid" id="ocrApplyBtn" hidden>填入座位名單</button>
+      </div>
     </div>
-    <button type="button" class="btn btn-secondary btn-pick-cancel" id="sidePickerCancel">取消</button>
   </div>
 
-  <!-- Screen-reader announcements (time's up, overtime, etc.) -->
+  <!-- ==================== 6. 排組雷達重複匯入詢問彈窗 ==================== -->
+  <div class="modal-overlay" id="importModal" hidden>
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="importModalTitle">
+      <h2 class="modal-title" id="importModalTitle">這台裝置已有此組的分享紀錄</h2>
+      <p class="modal-hint">要保留目前已分享過的紀錄並更新名單，還是清除紀錄重新開始？</p>
+      <div class="modal-foot">
+        <button type="button" class="btn-pill btn-outline" id="importResetBtn">清除紀錄重新開始</button>
+        <button type="button" class="btn-pill btn-solid" id="importKeepBtn">更新名單（保留已分享）</button>
+      </div>
+    </div>
+  </div>
+
   <div class="visually-hidden" id="announcer" aria-live="assertive" aria-atomic="true"></div>
-
-  <script src="./app.js" defer></script>
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>

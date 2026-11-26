@@ -1,0 +1,157 @@
+/* 四周 12 座位（對齊視覺稿：無邊框、狀態圓點＋橫書姓名＋性別 SVG）與手機窄螢幕自適應 */
+
+.ring-seat {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: transform 140ms ease, opacity 180ms ease;
+}
+
+.ring-seat:active {
+  transform: scale(.96);
+}
+
+.ring-seat-top,
+.ring-seat-bottom {
+  width: 220px;
+  height: 104px;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ring-seat-left {
+  width: 214px;
+  height: 58px;
+  padding-right: 4px;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ring-seat-right {
+  width: 214px;
+  height: 58px;
+  padding-left: 4px;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.seat-role-slot {
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.seat-name-line {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ring-seat-top .seat-dot { margin-top: 8px; }
+.ring-seat-bottom .seat-name-line { margin-top: 8px; }
+
+.seat-name-text {
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 42px;
+  white-space: nowrap;
+}
+
+.seat-name-text[data-long="true"] {
+  font-size: 24px;
+}
+
+.seat-gender.is-f { color: var(--f); flex: none; }
+.seat-gender.is-m { color: var(--m); flex: none; }
+
+.seat-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--ink3);
+  background: var(--dot);
+  transition: all 200ms ease;
+}
+
+.ring-seat.is-done .seat-name-text {
+  font-weight: 400;
+  color: var(--ink2);
+}
+
+.ring-seat.is-done .seat-dot {
+  border-color: var(--sage);
+  background: var(--sage);
+}
+
+.ring-seat.is-current .seat-name-text {
+  font-weight: 600;
+}
+
+.ring-seat.is-current .seat-dot {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  background: var(--sage);
+  box-shadow: 0 0 0 6px var(--halo);
+}
+
+.app[data-mode="warn"] .ring-seat.is-current .seat-dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 6px var(--warn-halo);
+}
+
+.ring-seat.is-current.is-over .seat-dot {
+  background: var(--over);
+  box-shadow: 0 0 0 6px var(--over-halo);
+}
+
+.mobile-seats {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .timer-view {
+    height: auto;
+    min-height: 100dvh;
+    padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 20px);
+    overflow: visible;
+    gap: 14px;
+  }
+  .family-heading { font-size: 20px; }
+  .course-pill { height: 32px; font-size: 16px; padding: 0 12px; }
+  .stage-outer { flex: none; }
+  .stage-canvas {
+    width: min(88vw, 340px);
+    height: min(88vw, 340px);
+    transform: none !important;
+  }
+  .ring-seat { display: none !important; }
+  .dial-plate {
+    position: relative;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 25%;
+  }
+  .dial-hint { font-size: 17px; }
+  .dial-speaker { font-size: 32px; line-height: 40px; }
+  .dial-clock { font-size: 76px; }
+  .dial-controls { margin-top: 14px; gap: 10px; }
+  .btn-dial-primary, .btn-dial-end { height: 46px; font-size: 16px; padding: 0 20px; }
+  .dial-progress-summary { margin-top: 14px; gap: 6px; }
+  .progress-text { font-size: 14px; }
+  .mobile-seats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
