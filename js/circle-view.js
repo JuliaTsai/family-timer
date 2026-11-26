@@ -1,10 +1,13 @@
-/* 就地圍圈純計時視圖（活動結束小組就地圍圈：隱藏所有人名，以家長為中心起點，支援順時針／逆時針與一鍵下一位） */
+/* 就地圍圈／純序號計時視圖：
+   - 未輸入名單時：直接依 1, 2, 3… 序號順跑計時
+   - 活動結束就地圍圈時：隱藏人名，以家長（1 號）為起點切換順時針／逆時針，一鍵「下一位」
+   - 同時渲染「平板／電腦外圈環繞圓點」與「手機大拇指號碼格」 */
 
 import { createIcon } from './icons.js';
 import { clampCircleTotal, Store } from './store.js';
 import { circleTurnNumber } from './timer-engine.js';
 
-export function initCircleView({ root, stageCanvas, engine, onChanged, announce }) {
+export function initCircleView({ root, stageCanvas, mobileCircleGrid, engine, onChanged, announce }) {
   const circleToolbar = root.querySelector('#circleToolbar');
   const dirCwBtn = root.querySelector('#circleDirCwBtn');
   const dirCcwBtn = root.querySelector('#circleDirCcwBtn');
@@ -13,22 +16,24 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
   const countLabel = root.querySelector('#circleCountLabel');
   const resetCircleBtn = root.querySelector('#circleResetBtn');
 
-  dirCwBtn.prepend(createIcon('cw', { size: 17 }));
-  dirCcwBtn.prepend(createIcon('ccw', { size: 17 }));
-  resetCircleBtn.prepend(createIcon('reset', { size: 16 }));
+  dirCwBtn.prepend(createIcon('cw', { size: 16 }));
+  dirCcwBtn.prepend(createIcon('ccw', { size: 16 }));
+  resetCircleBtn.prepend(createIcon('reset', { size: 15 }));
 
-  // 建立圓盤四周圍圈純圓點層（960×800 畫布圓心 (480, 390)，半徑 308px；0 = 6 點鐘正下方家長起點）
   const ringLayer = document.createElement('div');
   ringLayer.className = 'circle-nodes-layer';
   ringLayer.hidden = true;
   stageCanvas.appendChild(ringLayer);
 
-  ringLayer.addEventListener('click', (e) => {
-    const node = e.target.closest('button.circle-node');
+  const handleNodeTap = (e) => {
+    const node = e.target.closest('button[data-pos]');
     if (!node) return;
     engine.toggleCircleDotOrStart(Number(node.dataset.pos));
     if (e.detail > 0) node.blur();
-  });
+  };
+
+  ringLayer.addEventListener('click', handleNodeTap);
+  mobileCircleGrid.addEventListener('click', handleNodeTap);
 
   dirCwBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
@@ -36,7 +41,7 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
     g.circle.direction = 'cw';
     Store.save();
     onChanged();
-    announce('已切換為順時針分享');
+    announce('已切換為順時針依序分享');
   });
 
   dirCcwBtn.addEventListener('click', () => {
@@ -45,7 +50,7 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
     g.circle.direction = 'ccw';
     Store.save();
     onChanged();
-    announce('已切換為逆時針分享');
+    announce('已切換為逆時針依序分享');
   });
 
   const adjustCount = (delta) => {
@@ -69,14 +74,17 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
     g.circle.done = [];
     Store.save();
     onChanged();
-    announce('已重設本輪圍圈計時');
+    announce('已重設本輪計時進度');
   });
 
   function renderCircle() {
     const g = Store.getActiveGroup();
     const isCircle = g.shareMode === 'circle';
+    const hasRoster = Store.hasActiveMembers(g);
+
     circleToolbar.hidden = !isCircle;
     ringLayer.hidden = !isCircle;
+    mobileCircleGrid.hidden = !isCircle;
     if (!isCircle) return;
 
     const { total, direction, done } = g.circle;
@@ -90,12 +98,12 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
     const activeIdx = engine.activeTargetKind() === 'circle' ? engine.activeSlotIndex() : null;
     const mode = engine.computeClock().mode;
 
-    // 圓心 (480, 390)，以 6 點鐘方向 (Math.PI / 2) 為 pos=0（家長），順時針角度遞增
+    // 1. 平板／電腦：外圈圓點環繞（pos=0 在 6 點鐘正下方起點）
     const cx = 480;
     const cy = 390;
     const rx = 316;
     const ry = 304;
-    const frag = document.createDocumentFragment();
+    const ringFrag = document.createDocumentFragment();
 
     for (let pos = 0; pos < total; pos++) {
       const angle = Math.PI / 2 + (pos / total) * Math.PI * 2;
@@ -121,21 +129,50 @@ export function initCircleView({ root, stageCanvas, engine, onChanged, announce 
       badge.textContent = String(turn);
       btn.appendChild(badge);
 
-      if (pos === 0) {
+      if (pos === 0 && hasRoster) {
         const tag = document.createElement('span');
         tag.className = 'role-pill circle-parent-pill';
         tag.textContent = '家長';
         btn.appendChild(tag);
       }
 
-      btn.setAttribute(
-        'aria-label',
-        pos === 0 ? `家長（起點第 1 位），點選從此開始計時` : `第 ${turn} 位，點選從此開始計時`
-      );
-      frag.appendChild(btn);
+      btn.setAttribute('aria-label', `第 ${turn} 位，點選開始計時`);
+      ringFrag.appendChild(btn);
     }
+    ringLayer.replaceChildren(ringFrag);
 
-    ringLayer.replaceChildren(frag);
+    // 2. 手機版：依分享順序 1, 2, 3 … N 排列的大拇指點選格
+    const step = isCw ? 1 : -1;
+    const mobileFrag = document.createDocumentFragment();
+    for (let k = 0; k < total; k++) {
+      const pos = (((0 + step * k) % total) + total) % total;
+      const turn = k + 1;
+      const isCurrent = pos === activeIdx;
+      const isDone = done.includes(pos) && !isCurrent;
+
+      const mBtn = document.createElement('button');
+      mBtn.type = 'button';
+      mBtn.className = 'mobile-num-btn' +
+        (isCurrent ? ' is-current' : '') +
+        (isDone ? ' is-done' : '') +
+        (isCurrent && mode === 'over' ? ' is-over' : '');
+      mBtn.dataset.pos = String(pos);
+
+      const numEl = document.createElement('span');
+      numEl.className = 'mobile-num-digit';
+      numEl.textContent = String(turn);
+      mBtn.appendChild(numEl);
+
+      if (turn === 1 && hasRoster) {
+        const sub = document.createElement('span');
+        sub.className = 'mobile-num-sub';
+        sub.textContent = '家長';
+        mBtn.appendChild(sub);
+      }
+      mBtn.setAttribute('aria-label', `第 ${turn} 位，點選開始計時`);
+      mobileFrag.appendChild(mBtn);
+    }
+    mobileCircleGrid.replaceChildren(mobileFrag);
   }
 
   return { renderCircle };

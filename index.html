@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="./styles/circle.css">
   <link rel="stylesheet" href="./styles/panels.css">
   <link rel="stylesheet" href="./styles/modals.css">
+  <link rel="stylesheet" href="./styles/mobile.css">
   <title>家庭分享計時</title>
 </head>
 <body>
@@ -80,10 +81,10 @@
         </button>
 
         <div class="timer-topbar-right">
-          <!-- 桌次座位 ↔ 就地圍圈 雙模式切換 -->
+          <!-- 桌次座位 ↔ 序號／圍圈 雙模式切換 -->
           <div class="mode-seg" role="group" aria-label="分享場景模式">
             <button type="button" class="mode-seg-btn is-active" id="modeTableBtn" aria-pressed="true">桌次座位</button>
-            <button type="button" class="mode-seg-btn" id="modeCircleBtn" aria-pressed="false">就地圍圈</button>
+            <button type="button" class="mode-seg-btn" id="modeCircleBtn" aria-pressed="false">序號 / 圍圈</button>
           </div>
 
           <button type="button" class="btn-pill btn-ghost btn-sm arrange-btn" id="arrangeSeatsBtn">
@@ -151,8 +152,9 @@
         </div>
       </div>
 
-      <!-- 手機直拿輔助座位名單（桌次模式下顯示） -->
+      <!-- 手機直拿輔助：桌次雙欄名單 與 序號／圍圈 4×3 大拇指號碼格 -->
       <section class="mobile-seats" id="mobileSeatList" aria-label="點選成員開始計時"></section>
+      <section class="mobile-circle-grid" id="mobileCircleGrid" aria-label="點選序號開始計時" hidden></section>
     </main>
   </div>
 

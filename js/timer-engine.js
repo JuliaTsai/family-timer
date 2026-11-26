@@ -242,7 +242,8 @@ export function createTimerEngine({ onTick, onStateChange, announce }) {
 
     if (isCircle && state.targetKind === 'circle' && state.slotIndex !== null) {
       const turn = circleTurnNumber(state.slotIndex, g.circle.total, g.circle.direction);
-      speakerLabel = state.slotIndex === 0 ? '家長（第 1 位）' : `第 ${turn} 位`;
+      const hasRoster = Store.hasActiveMembers(g);
+      speakerLabel = state.slotIndex === 0 && hasRoster ? '家長（第 1 位）' : `第 ${turn} 位`;
     } else if (!isCircle) {
       const seat = currentSeat();
       if (seat) speakerLabel = seat.name;

@@ -1,0 +1,138 @@
+/* 手機版專屬響應式版面（名單設定緊湊雙欄＋懸浮底欄、計時主畫面一屏圓盤＋4×3 大拇指序號鈕／雙欄名單） */
+
+@media (max-width: 740px) {
+  .setup-view {
+    padding: calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 14px);
+    gap: 12px;
+  }
+  .setup-title { font-size: 22px; }
+  .offline-pill { font-size: 12px; gap: 5px; }
+  .setup-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .setup-field { gap: 4px; }
+  .setup-field-label { font-size: 13px; }
+  .setup-field-input {
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+  .setup-section-bar { margin-top: 14px; margin-bottom: 8px; }
+  .setup-section-title { font-size: 16px; }
+  .setup-section-note { font-size: 12px; }
+  .setup-seats-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    grid-auto-flow: row;
+    gap: 7px;
+  }
+  .setup-seat-row {
+    min-height: 48px;
+    padding: 0 8px 0 6px;
+    border-radius: 14px;
+    gap: 6px;
+  }
+  .setup-seat-lead { width: 60px; font-size: 15px; }
+  .setup-seat-lead .role-pill {
+    height: 24px;
+    padding: 0 8px;
+    font-size: 13px;
+    letter-spacing: .04em;
+  }
+  .setup-name-input { height: 40px; font-size: 17px; }
+  .gender-toggle { width: 38px; height: 34px; border-radius: 10px; }
+  .setup-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 10px 0 calc(var(--safe-bottom) + 4px);
+    background: linear-gradient(180deg, transparent 0%, var(--bg) 22%);
+  }
+  .setup-footer-left {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .setup-footer-left .btn-pill { height: 40px; padding: 0 10px; font-size: 13px; }
+  #startCircleDirectBtn { grid-column: 1 / -1; }
+  .setup-footer .btn-lg { width: 100%; height: 48px; font-size: 17px; }
+}
+
+@media (max-width: 700px) {
+  .hide-narrow { display: none; }
+  .timer-topbar { flex-wrap: wrap; gap: 8px; }
+  .header-group-btn { max-width: calc(100% - 52px); }
+  .timer-topbar-right {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+    order: 3;
+  }
+  #openDrawerBtn {
+    position: absolute;
+    top: calc(var(--safe-top) + 10px);
+    right: 14px;
+  }
+  .mode-seg-btn { height: 32px; padding: 0 11px; font-size: 13px; }
+  .arrange-btn { height: 36px; padding: 0 12px; font-size: 13px; }
+  .circle-toolbar { gap: 6px; padding: 0; }
+  .circle-count-ctrl { height: 36px; }
+  .circle-nodes-layer { display: none !important; }
+  .btn-dial-next { height: 38px; font-size: 14px; padding: 0 14px; }
+  .circle-start-btn { height: 40px; font-size: 15px; margin-top: 10px; padding: 0 20px; }
+
+  .mobile-circle-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding-top: 2px;
+  }
+  .mobile-num-btn {
+    min-height: 54px;
+    border-radius: 16px;
+    border: 1.5px solid var(--line-strong);
+    background: var(--surface-soft);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: transform 120ms ease, background-color 150ms ease;
+  }
+  .mobile-num-btn:active { transform: scale(.95); }
+  .mobile-num-digit { font-size: 20px; font-weight: 600; line-height: 1.1; }
+  .mobile-num-sub { font-size: 11px; color: var(--ink2); }
+  .mobile-num-btn.is-done {
+    border-color: var(--sage);
+    background: var(--sage);
+    color: #FBFAF7;
+    opacity: .78;
+  }
+  .mobile-num-btn.is-done .mobile-num-sub,
+  .mobile-num-btn.is-current .mobile-num-sub { color: #FBFAF7; }
+  .mobile-num-btn.is-current {
+    border-color: var(--sage);
+    background: var(--sage);
+    color: #FBFAF7;
+    box-shadow: 0 0 0 4px var(--halo);
+  }
+  .app[data-mode="warn"] .mobile-num-btn.is-current {
+    border-color: var(--warn);
+    background: var(--warn);
+    box-shadow: 0 0 0 4px var(--warn-halo);
+  }
+  .mobile-num-btn.is-current.is-over {
+    border-color: var(--over);
+    background: var(--over);
+    box-shadow: 0 0 0 4px var(--over-halo);
+  }
+}

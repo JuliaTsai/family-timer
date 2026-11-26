@@ -203,7 +203,8 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   function syncHeaderStats() {
     const g = Store.getActiveGroup();
     const filled = Store.activeSeats(g).length;
-    seatCountLabel.textContent = filled > 0 ? `座位名單 · ${filled} 人` : `座位名單 · ${TOTAL_SEATS} 座位`;
+    seatCountLabel.textContent = filled > 0 ? `座位名單 · ${filled} 人` : `座位名單 · ${TOTAL_SEATS} 座位（可免填直接計時）`;
+    finishBtn.textContent = filled > 0 ? '完成，開始分享' : '不填名字，依序號開始計時';
     backToTimerBtn.hidden = filled === 0 && g.shareMode !== 'circle';
     syncGroupSelect();
   }
@@ -268,7 +269,6 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   pasteCloseBtns.forEach((b) => b.addEventListener('click', () => { pasteModal.hidden = true; }));
   pasteModal.addEventListener('click', (e) => { if (e.target === pasteModal) pasteModal.hidden = true; });
   ocrBtn.addEventListener('click', () => onOpenOcr());
-
   circleDirectBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
     g.shareMode = 'circle';
@@ -276,12 +276,13 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     Store.save();
     onStartCircle();
   });
-
   finishBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
     if (!Store.hasActiveMembers(g)) {
-      rowRefs[0].input.focus();
-      announce('請輸入姓名，或點選「直接圍圈計時」');
+      g.shareMode = 'circle';
+      Store.save();
+      onStartCircle();
+      announce('未輸入姓名，直接以 1、2、3 序號模式開始計時');
       return;
     }
     g.shareMode = 'table';
@@ -289,12 +290,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     Store.save();
     onStartTable();
   });
-
-  backToTimerBtn.addEventListener('click', () => {
-    const g = Store.getActiveGroup();
-    if (g.shareMode === 'circle') onStartCircle();
-    else onStartTable();
-  });
+  backToTimerBtn.addEventListener('click', () => (Store.getActiveGroup().shareMode === 'circle' ? onStartCircle() : onStartTable()));
 
   return { render, applyBulkRosterText };
 }

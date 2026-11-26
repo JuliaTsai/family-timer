@@ -226,12 +226,6 @@
   font-size: 20px;
 }
 
-@media (max-width: 700px) {
-  .hide-narrow { display: none; }
-  .arrange-btn { display: none; }
-  .timer-topbar { flex-wrap: wrap; gap: 10px; }
-  .timer-topbar-right { gap: 8px; margin-left: auto; }
-  .circle-nodes-layer { display: none !important; }
-  .btn-dial-next { height: 46px; font-size: 16px; padding: 0 18px; }
-  .circle-start-btn { height: 48px; font-size: 17px; margin-top: 14px; }
+.mobile-circle-grid {
+  display: none;
 }
