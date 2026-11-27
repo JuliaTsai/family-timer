@@ -1,20 +1,14 @@
-/* 桌次座位卡片與清單卡片渲染器（職責分離：單純產生座位與清單 DOM） */
+/* 桌次座位卡片與清單卡片渲染器：支援顯示 家長、副家長、小天使{}、小天使{}. 角色標籤（四邊座位皆對齊顯示） */
 
-import { PARENT_INDEX, SUB_PARENT_INDEX } from './codec.js';
+import { formatRoleLabel } from './codec.js';
 import { createIcon } from './icons.js';
 import { isLockedRoleIndex, Store } from './store.js';
 
-/**
- * seats[0..11] 對應圓桌 12 個實體座位：
- * - index 0 = 家長 ➔ 固定在正下方中央 (x:370, y:656)
- * - index 1 = 副家長 ➔ 固定在正上方中央 (x:370, y:22)
- * - index 2..11 = 組員 3~12 ➔ 由家長左側起順時針環繞入座，可自由拖曳互換位置
- */
 export const TABLE_SEAT_COORDS = [
-  { side: 'bottom', x: 370, y: 656, role: '家長', locked: true },
-  { side: 'top', x: 370, y: 22, role: '副家長', locked: true },
-  { side: 'bottom', x: 130, y: 656 },
-  { side: 'left', x: 12, y: 482 },
+  { side: 'bottom', x: 370, y: 656, locked: true }, // index 0: 家長（下中固定）
+  { side: 'top', x: 370, y: 22, locked: true },     // index 1: 副家長（上中固定）
+  { side: 'bottom', x: 130, y: 656 },               // index 2: 預設小天使{}（下左，可拖曳換位）
+  { side: 'left', x: 12, y: 482 },                  // index 3: 預設小天使{}.（左下，可拖曳換位）
   { side: 'left', x: 12, y: 362 },
   { side: 'left', x: 12, y: 242 },
   { side: 'top', x: 130, y: 22 },
@@ -49,6 +43,7 @@ export function renderRingSeatButton(btn, seat, idx, { isTableActive, activeIdx,
 
   const isCurrent = isTableActive && idx === activeIdx;
   const isDone = seat.done && !isCurrent && !arranging;
+  const roleLabel = formatRoleLabel(seat.role, g.family);
 
   btn.className = `ring-seat ring-seat-${cfg.side}` +
     (cfg.locked ? ' is-locked-seat' : ' is-movable-seat') +
@@ -71,15 +66,20 @@ export function renderRingSeatButton(btn, seat, idx, { isTableActive, activeIdx,
     ? createIcon('male', { size: 25, className: 'seat-gender is-m', label: '男' })
     : null;
 
+  const makePill = () => {
+    if (!roleLabel) return null;
+    const pill = document.createElement('span');
+    pill.className = 'role-pill' + (seat.role?.startsWith('A') ? ' role-pill-angel' : '');
+    pill.textContent = arranging && cfg.locked ? `${roleLabel} · 固定` : roleLabel;
+    return pill;
+  };
+
   if (cfg.side === 'top' || cfg.side === 'bottom') {
     const roleSlot = document.createElement('span');
     roleSlot.className = 'seat-role-slot';
-    if (cfg.role) {
-      const pill = document.createElement('span');
-      pill.className = 'role-pill';
-      pill.textContent = arranging ? `${cfg.role} · 固定` : cfg.role;
-      roleSlot.appendChild(pill);
-    }
+    const pill = makePill();
+    if (pill) roleSlot.appendChild(pill);
+
     const line = document.createElement('span');
     line.className = 'seat-name-line';
     line.appendChild(nameSpan);
@@ -88,17 +88,30 @@ export function renderRingSeatButton(btn, seat, idx, { isTableActive, activeIdx,
     if (cfg.side === 'top') btn.replaceChildren(roleSlot, line, dot);
     else btn.replaceChildren(dot, line, roleSlot);
   } else if (cfg.side === 'left') {
-    const children = [];
-    if (genderIcon) children.push(genderIcon);
-    children.push(nameSpan, dot);
-    btn.replaceChildren(...children);
+    const stack = document.createElement('span');
+    stack.className = 'seat-side-stack is-left';
+    const pill = makePill();
+    if (pill) stack.appendChild(pill);
+    const line = document.createElement('span');
+    line.className = 'seat-name-line';
+    if (genderIcon) line.appendChild(genderIcon);
+    line.appendChild(nameSpan);
+    stack.appendChild(line);
+    btn.replaceChildren(stack, dot);
   } else {
-    const children = [dot, nameSpan];
-    if (genderIcon) children.push(genderIcon);
-    btn.replaceChildren(...children);
+    const stack = document.createElement('span');
+    stack.className = 'seat-side-stack is-right';
+    const pill = makePill();
+    if (pill) stack.appendChild(pill);
+    const line = document.createElement('span');
+    line.className = 'seat-name-line';
+    line.appendChild(nameSpan);
+    if (genderIcon) line.appendChild(genderIcon);
+    stack.appendChild(line);
+    btn.replaceChildren(dot, stack);
   }
 
-  const rolePrefix = cfg.role ? `${cfg.role} ` : '';
+  const rolePrefix = roleLabel ? `${roleLabel} ` : '';
   const stateDesc = arranging
     ? (cfg.locked ? '座位固定不變' : '拖曳可與其他組員換座位')
     : isCurrent ? '發言中' : isDone ? '已分享，點一下恢復未分享' : '點選計時（長按拖曳可換座位）';
@@ -106,16 +119,19 @@ export function renderRingSeatButton(btn, seat, idx, { isTableActive, activeIdx,
 }
 
 export function buildMemberListCard(seat, idx, isTableActive, activeIdx, running) {
+  const g = Store.getActiveGroup();
   const isCurrent = isTableActive && idx === activeIdx;
   const isDone = seat.done && !isCurrent;
+  const roleLabel = formatRoleLabel(seat.role, g.family);
+
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'member-card' + (isCurrent ? ' is-current' : '') + (isDone ? ' is-done' : '');
   b.dataset.index = String(idx);
 
   const badge = document.createElement('span');
-  badge.className = 'member-slot-badge';
-  badge.textContent = idx === PARENT_INDEX ? '家長' : idx === SUB_PARENT_INDEX ? '副家' : String(idx + 1);
+  badge.className = 'member-slot-badge' + (seat.role?.startsWith('A') ? ' is-angel-badge' : '');
+  badge.textContent = roleLabel || String(idx + 1);
 
   const info = document.createElement('span');
   info.className = 'member-info';

@@ -189,7 +189,7 @@
 .member-slot-badge {
   min-width: 34px;
   height: 26px;
-  padding: 0 6px;
+  padding: 0 7px;
   border-radius: 999px;
   background: var(--line);
   color: var(--ink2);
@@ -199,6 +199,13 @@
   align-items: center;
   justify-content: center;
   flex: none;
+  white-space: nowrap;
+}
+
+.member-slot-badge.is-angel-badge {
+  border: 1px solid var(--sage);
+  background: transparent;
+  color: var(--sage);
 }
 
 .member-info {

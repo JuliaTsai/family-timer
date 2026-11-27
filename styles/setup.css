@@ -135,15 +135,22 @@
 }
 
 .setup-seat-lead {
-  width: 74px;
+  width: 116px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   font-size: 17px;
   color: var(--ink2);
   font-variant-numeric: tabular-nums;
+}
+
+.setup-seat-lead .role-pill {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 14px;
+  letter-spacing: .04em;
 }
 
 .setup-drag-grip {

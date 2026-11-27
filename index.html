@@ -127,20 +127,11 @@
               <span class="dial-speaker" id="dialSpeaker" hidden></span>
               <span class="dial-clock" id="dialClock" role="timer" aria-live="off">01:00</span>
 
-              <button type="button" class="btn-pill btn-dial-primary circle-start-btn" id="circleIdleStartBtn" hidden>
-                <span>開始計時</span>
-              </button>
-
+              <button type="button" class="btn-pill btn-dial-primary circle-start-btn" id="circleIdleStartBtn" hidden><span>開始計時</span></button>
               <div class="dial-controls" id="dialControls" hidden>
-                <button type="button" class="btn-pill btn-dial-primary" id="pauseBtn" data-resume="false">
-                  <span id="pauseBtnText">暫停</span>
-                </button>
-                <button type="button" class="btn-pill btn-dial-next" id="nextCircleBtn" hidden>
-                  <span>下一位</span>
-                </button>
-                <button type="button" class="btn-pill btn-dial-end" id="endBtn">
-                  <span id="endBtnText">結束</span>
-                </button>
+                <button type="button" class="btn-pill btn-dial-primary" id="pauseBtn" data-resume="false"><span id="pauseBtnText">暫停</span></button>
+                <button type="button" class="btn-pill btn-dial-next" id="nextCircleBtn" hidden><span>下一位</span></button>
+                <button type="button" class="btn-pill btn-dial-end" id="endBtn"><span id="endBtnText">結束</span></button>
               </div>
 
               <div class="dial-progress-summary" role="group" aria-label="分享進度">
@@ -234,8 +225,8 @@
         <h2 class="modal-title" id="pasteModalTitle">一次貼上多個名字</h2>
         <button type="button" class="btn-pill btn-ghost btn-sm" data-paste-close>取消</button>
       </div>
-      <p class="modal-hint">每行一個名字（第 1 行預設為家長、第 2 行為副家長，亦支援含「家長／副家長」、「男／女」標籤自動對位）。</p>
-      <textarea id="pasteTextarea" class="paste-textarea" rows="10" placeholder="家長 李雨珊 女&#10;副家長 何弈翰 男&#10;吳珮綺 女&#10;林志威 男&#10;..."></textarea>
+      <p class="modal-hint">每行一個名字（預設依序為家長、副家長、小天使{}、小天使{}. 與組員；亦支援含角色或男／女標籤自動對位）。</p>
+      <textarea id="pasteTextarea" class="paste-textarea" rows="10" placeholder="家長 李雨珊 女&#10;副家長 何弈翰 男&#10;小天使16 吳珮綺 女&#10;小天使16. 林志威 男&#10;陳雅婷 女&#10;..."></textarea>
       <div class="modal-foot">
         <button type="button" class="btn-pill btn-outline" data-paste-close>關閉</button>
         <button type="button" class="btn-pill btn-solid" id="pasteApplyBtn">填入座位</button>

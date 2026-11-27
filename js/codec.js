@@ -1,12 +1,18 @@
 /* URL Hash (#g=...) 免後端名單解碼器 ＋ 一次貼上／紙本 OCR 智慧姓名座位解析
-   名單順序規則：第 1 格永遠是「家長」(index 0)，第 2 格永遠是「副家長」(index 1)，第 3~12 格為組員 (index 2..11) */
+   預設名單順序（大堂課）：
+   - 第 1 格 (index 0)：家長 ('P')
+   - 第 2 格 (index 1)：副家長 ('S')
+   - 第 3 格 (index 2)：小天使{} ('A1')
+   - 第 4 格 (index 3)：小天使{}. ('A2')
+   - 第 5~12 格 (index 4..11)：組員 ('') */
 
 export const TOTAL_SEATS = 12;
-export const PARENT_INDEX = 0;     // 第 1 格永遠是「家長」（桌次模式下固定在正下方中央）
-export const SUB_PARENT_INDEX = 1; // 第 2 格永遠是「副家長」（桌次模式下固定在正上方中央）
-
-// 第 3~12 格一般組員索引（可在名單設定與桌次座位上自由拖曳換位）
+export const PARENT_INDEX = 0;
+export const SUB_PARENT_INDEX = 1;
+export const ANGEL1_INDEX = 2;
+export const ANGEL2_INDEX = 3;
 export const MEMBER_SEAT_INDICES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const STUDENT_FIRST_INDICES = [4, 5, 6, 7, 8, 9, 10, 11, 2, 3];
 
 const MAX_NAME_LEN = 24;
 const HEADER_NOISE_RE = /^(?:(?:執事|學員姓名|姓名|介紹人|介紹人電話|公司名稱|職稱|電話|手機|Line[- ]?ID|性別|生日|年齡|關懷體系|聯誼會籍|便當|備註)(?:\s+(?:執事|學員姓名|姓名|介紹人|介紹人電話|公司名稱|職稱|電話|手機|Line[- ]?ID|性別|生日|年齡|小天使|關懷員|關懷體系|關懷長|聯誼會籍|便當|備註))*|人數[:：].*)$/i;
@@ -26,48 +32,90 @@ export function normalizeGender(raw) {
   return '';
 }
 
-export function emptySeats() {
+export function normalizeRole(raw) {
+  const s = String(raw || '').trim();
+  if (s === 'P' || s === 'parent') return 'P';
+  if (s === 'S' || s === 'sub_parent') return 'S';
+  if (s === 'A1' || s === 'senior1') return 'A1';
+  if (s === 'A2' || s === 'senior2') return 'A2';
+  return '';
+}
+
+/** 從「第 16 家庭 / 16 / 第 3 組」擷取編號數字，組出 小天使{16} 與 小天使{16}. */
+export function extractFamilyNo(familyStr) {
+  const m = String(familyStr || '').match(/\d+/);
+  return m ? m[0] : '';
+}
+
+export function formatRoleLabel(role, familyStr = '') {
+  if (role === 'P') return '家長';
+  if (role === 'S') return '副家長';
+  const no = extractFamilyNo(familyStr);
+  if (role === 'A1') return `小天使${no}`;
+  if (role === 'A2') return `小天使${no}.`;
+  return '';
+}
+
+export function emptySeats({ isAdvanced = false } = {}) {
   return Array.from({ length: TOTAL_SEATS }, (_, i) => ({
     slot: i + 1,
     name: '',
     gender: '',
+    role: i === PARENT_INDEX ? 'P'
+      : i === SUB_PARENT_INDEX ? 'S'
+      : !isAdvanced && i === ANGEL1_INDEX ? 'A1'
+      : !isAdvanced && i === ANGEL2_INDEX ? 'A2'
+      : '',
     done: false,
   }));
 }
 
 /**
  * 將「角色成員清單」排入 12 格名單：
- * - role === 'P'（家長）固定放入第 1 格 (index 0)
- * - role === 'S'（副家長）固定放入第 2 格 (index 1)
- * - 其餘成員依序填入第 3~12 格 (index 2..11)；若正副家長未標示則最後補入空缺
+ * - 'P' -> index 0, 'S' -> index 1, 'A1' -> index 2, 'A2' -> index 3
+ * - 一般學員優先填入 index 4..11（進階課無小天使時由 index 2 起填）
  */
-export function assignMembersTo12Seats(items) {
-  const seats = emptySeats();
+export function assignMembersTo12Seats(items, { isAdvanced = false } = {}) {
+  const seats = emptySeats({ isAdvanced });
   const others = [];
 
   for (const item of items) {
     const name = cleanPersonName(item.name);
     if (!name) continue;
     const gender = normalizeGender(item.gender);
-    const role = item.role || '';
+    const role = normalizeRole(item.role);
     if (role === 'P' && !seats[PARENT_INDEX].name) {
       seats[PARENT_INDEX].name = name;
       seats[PARENT_INDEX].gender = gender;
+      seats[PARENT_INDEX].role = 'P';
     } else if (role === 'S' && !seats[SUB_PARENT_INDEX].name) {
       seats[SUB_PARENT_INDEX].name = name;
       seats[SUB_PARENT_INDEX].gender = gender;
+      seats[SUB_PARENT_INDEX].role = 'S';
+    } else if (role === 'A1' && !seats[ANGEL1_INDEX].name) {
+      seats[ANGEL1_INDEX].name = name;
+      seats[ANGEL1_INDEX].gender = gender;
+      seats[ANGEL1_INDEX].role = 'A1';
+    } else if (role === 'A2' && !seats[ANGEL2_INDEX].name) {
+      seats[ANGEL2_INDEX].name = name;
+      seats[ANGEL2_INDEX].gender = gender;
+      seats[ANGEL2_INDEX].role = 'A2';
     } else {
-      others.push({ name, gender });
+      others.push({ name, gender, role });
     }
   }
 
-  const fillOrder = [...MEMBER_SEAT_INDICES, PARENT_INDEX, SUB_PARENT_INDEX];
+  const fillOrder = isAdvanced
+    ? [...MEMBER_SEAT_INDICES, PARENT_INDEX, SUB_PARENT_INDEX]
+    : [...STUDENT_FIRST_INDICES, PARENT_INDEX, SUB_PARENT_INDEX];
   let cursor = 0;
   for (const person of others) {
     while (cursor < fillOrder.length && seats[fillOrder[cursor]].name) cursor++;
     if (cursor >= fillOrder.length) break;
-    seats[fillOrder[cursor]].name = person.name;
-    seats[fillOrder[cursor]].gender = person.gender;
+    const targetIdx = fillOrder[cursor];
+    seats[targetIdx].name = person.name;
+    seats[targetIdx].gender = person.gender;
+    if (person.role && targetIdx >= 2) seats[targetIdx].role = person.role;
     cursor++;
   }
   return seats;
@@ -92,16 +140,18 @@ export function decodeUrlHashPayload(hashStr) {
 
     const course = cleanText(json.c || json.course || '', 30);
     const family = cleanText(json.f || json.family || '', 30);
+    const isAdvanced = Boolean(json.adv);
 
     if (Array.isArray(json.s)) {
-      const seats = emptySeats();
+      const seats = emptySeats({ isAdvanced });
       json.s.slice(0, TOTAL_SEATS).forEach((row, idx) => {
         if (Array.isArray(row)) {
           seats[idx].name = cleanPersonName(row[0]);
           seats[idx].gender = normalizeGender(row[1]);
+          if (row[2] !== undefined && idx >= 2) seats[idx].role = normalizeRole(row[2]);
         }
       });
-      return { course, family, seats };
+      return { course, family, isAdvanced, seats };
     }
 
     if (Array.isArray(json.p)) {
@@ -110,9 +160,9 @@ export function decodeUrlHashPayload(hashStr) {
         .map(([name, gender, role]) => ({
           name: cleanPersonName(String(name).replace(/^\d+[_\s]+/, '').replace(/\(.*?\)|（.*?）/g, '')),
           gender: normalizeGender(gender),
-          role: role === 'P' || role === 'parent' ? 'P' : role === 'S' || role === 'sub_parent' ? 'S' : '',
+          role: normalizeRole(role),
         }));
-      return { course, family, seats: assignMembersTo12Seats(items) };
+      return { course, family, isAdvanced, seats: assignMembersTo12Seats(items, { isAdvanced }) };
     }
     return null;
   } catch {
@@ -120,12 +170,8 @@ export function decodeUrlHashPayload(hashStr) {
   }
 }
 
-/**
- * 解析「一次貼上多個名字」或「紙本名單 OCR 結果」：
- * - 若內文含有「家長 / 副家長」標籤，自動對位第 1 格（家長）、第 2 格（副家長），其餘排入第 3~12 格
- * - 若為純名字清單，第 1 行填第 1 格（家長）、第 2 行填第 2 格（副家長）、第 3~12 行填組員
- */
-export function parseRosterText(rawText) {
+/** 解析「一次貼上多個名字」或「紙本名單 OCR 結果」 */
+export function parseRosterText(rawText, { isAdvanced = false } = {}) {
   const lines = String(rawText || '')
     .split(/\r?\n/)
     .map((l) => l.replace(/[|｜\t]+/g, ' ').replace(/\s+/g, ' ').trim())
@@ -135,6 +181,7 @@ export function parseRosterText(rawText) {
   let detectedFamily = '';
   const parsedRows = [];
   let hasExplicitRole = false;
+  let angelSeenCount = 0;
 
   for (const line of lines) {
     if (HEADER_NOISE_RE.test(line)) continue;
@@ -158,9 +205,18 @@ export function parseRosterText(rawText) {
       role = 'P';
       hasExplicitRole = true;
       rest = rest.replace(/^.*?(?:家長|組長)\d*\.?[:：\s]*/, '');
+    } else if (/^(?:小天使\d*\.|複訓\s*2)/.test(rest)) {
+      role = 'A2';
+      hasExplicitRole = true;
+      rest = rest.replace(/^(?:小天使\d*\.|複訓\s*2)[:：\s]*/, '');
+    } else if (/^(?:小天使\d*|複訓\s*1?)/.test(rest)) {
+      angelSeenCount++;
+      role = angelSeenCount >= 2 ? 'A2' : 'A1';
+      hasExplicitRole = true;
+      rest = rest.replace(/^(?:小天使\d*|複訓\s*1?)[:：\s]*/, '');
     } else {
       rest = rest
-        .replace(/^(?:小天使|複訓|新生|組員)\d*\.?[:：\s]*/, '')
+        .replace(/^(?:新生|組員)\d*\.?[:：\s]*/, '')
         .replace(/^\d{1,3}\s*[-–—.]\s*\d{1,2}\s*/, '')
         .replace(/^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫\d]{1,2}[.、)）:：\s]+/, '');
     }
@@ -185,9 +241,7 @@ export function parseRosterText(rawText) {
     let candidate = tokens[0];
     if (/^[\u4e00-\u9fff]$/.test(candidate) && tokens[1] && /^[\u4e00-\u9fff]{1,2}$/.test(tokens[1])) {
       candidate += tokens[1];
-      if (candidate.length === 2 && tokens[2] && /^[\u4e00-\u9fff]$/.test(tokens[2])) {
-        candidate += tokens[2];
-      }
+      if (candidate.length === 2 && tokens[2] && /^[\u4e00-\u9fff]$/.test(tokens[2])) candidate += tokens[2];
     }
 
     const name = cleanPersonName(candidate.replace(/^[^\u4e00-\u9fffA-Za-z]+|[^\u4e00-\u9fffA-Za-z·•-]+$/g, ''));
@@ -195,21 +249,16 @@ export function parseRosterText(rawText) {
     parsedRows.push({ name, gender, role });
   }
 
-  let seats;
-  if (hasExplicitRole) {
-    seats = assignMembersTo12Seats(parsedRows);
-  } else {
-    seats = emptySeats();
-    parsedRows.slice(0, TOTAL_SEATS).forEach((p, idx) => {
-      seats[idx].name = p.name;
-      seats[idx].gender = p.gender;
-    });
-  }
+  const seats = hasExplicitRole
+    ? assignMembersTo12Seats(parsedRows, { isAdvanced })
+    : (() => {
+        const s = emptySeats({ isAdvanced });
+        parsedRows.slice(0, TOTAL_SEATS).forEach((p, idx) => {
+          s[idx].name = p.name;
+          s[idx].gender = p.gender;
+        });
+        return s;
+      })();
 
-  return {
-    course: detectedCourse,
-    family: detectedFamily,
-    seats,
-    count: seats.filter((s) => s.name).length,
-  };
+  return { course: detectedCourse, family: detectedFamily, seats, count: seats.filter((s) => s.name).length };
 }

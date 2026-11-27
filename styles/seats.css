@@ -27,7 +27,7 @@
 
 .ring-seat-left {
   width: 214px;
-  height: 58px;
+  min-height: 58px;
   padding-right: 4px;
   justify-content: flex-end;
   gap: 10px;
@@ -35,10 +35,33 @@
 
 .ring-seat-right {
   width: 214px;
-  height: 58px;
+  min-height: 58px;
   padding-left: 4px;
   justify-content: flex-start;
   gap: 10px;
+}
+
+.seat-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.seat-side-stack.is-left {
+  align-items: flex-end;
+}
+
+.seat-side-stack.is-right {
+  align-items: flex-start;
+}
+
+.role-pill-angel {
+  height: 25px;
+  padding: 0 10px;
+  font-size: 14px;
+  letter-spacing: .04em;
+  border-color: var(--sage);
+  color: var(--sage);
 }
 
 .seat-role-slot {

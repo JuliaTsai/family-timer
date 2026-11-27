@@ -1,9 +1,8 @@
 /* 名單設定畫面：
-   - 第 1 格永遠是「家長」(index 0)，第 2 格永遠是「副家長」(index 1)
-   - 第 3~12 格為組員，支援拖曳手把調整順序
-   - 提供「直接圍圈計時（不填名單）」一鍵入口 */
+   - 第 1 格固定「家長」，第 2 格固定「副家長」
+   - 大堂課第 3、4 格標示「小天使{}」、「小天使{}.」（隨家庭／組別編號即時連動，且換座位時標籤跟著人走） */
 
-import { cleanPersonName, cleanText, PARENT_INDEX, parseRosterText, SUB_PARENT_INDEX, TOTAL_SEATS } from './codec.js';
+import { cleanPersonName, cleanText, formatRoleLabel, parseRosterText, TOTAL_SEATS } from './codec.js';
 import { createIcon } from './icons.js';
 import { formatGroupTitle, isLockedRoleIndex, Store } from './store.js';
 
@@ -44,9 +43,6 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
 
   for (let idx = 0; idx < TOTAL_SEATS; idx++) {
     const slotNum = idx + 1;
-    const isParent = idx === PARENT_INDEX;
-    const isSub = idx === SUB_PARENT_INDEX;
-    const roleText = isParent ? '家長' : isSub ? '副家長' : '';
     const lockedRole = isLockedRoleIndex(idx);
 
     const row = document.createElement('div');
@@ -55,21 +51,18 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
 
     const lead = document.createElement('span');
     lead.className = 'setup-seat-lead';
-    if (roleText) {
-      const pill = document.createElement('span');
-      pill.className = 'role-pill';
-      pill.textContent = roleText;
-      lead.appendChild(pill);
-    } else {
-      const grip = document.createElement('span');
+    let grip = null;
+    if (!lockedRole) {
+      grip = document.createElement('span');
       grip.className = 'setup-drag-grip';
       grip.title = '拖曳調整組員座位順序';
       grip.dataset.dragHandle = 'true';
-      grip.appendChild(createIcon('grip', { size: 15 }));
-      const num = document.createElement('span');
-      num.textContent = String(slotNum);
-      lead.append(grip, num);
+      grip.appendChild(createIcon('grip', { size: 14 }));
     }
+    const leadLabel = document.createElement('span');
+    leadLabel.className = 'setup-lead-slot';
+    if (grip) lead.append(grip, leadLabel);
+    else lead.appendChild(leadLabel);
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -77,8 +70,6 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     input.maxLength = 24;
     input.autocomplete = 'off';
     input.enterKeyHint = idx === TOTAL_SEATS - 1 ? 'done' : 'next';
-    input.placeholder = roleText ? `${roleText}姓名` : '輸入姓名';
-    input.setAttribute('aria-label', roleText ? `${slotNum} ${roleText}姓名` : `座位 ${slotNum} 姓名`);
 
     const genderWrap = document.createElement('div');
     genderWrap.className = 'setup-gender-group';
@@ -87,7 +78,6 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     btnF.type = 'button';
     btnF.className = 'gender-toggle gender-f';
     btnF.dataset.gender = 'F';
-    btnF.setAttribute('aria-label', `${roleText || '座位 ' + slotNum} 女`);
     btnF.setAttribute('aria-pressed', 'false');
     btnF.appendChild(createIcon('female', { size: 22 }));
 
@@ -95,14 +85,13 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     btnM.type = 'button';
     btnM.className = 'gender-toggle gender-m';
     btnM.dataset.gender = 'M';
-    btnM.setAttribute('aria-label', `${roleText || '座位 ' + slotNum} 男`);
     btnM.setAttribute('aria-pressed', 'false');
     btnM.appendChild(createIcon('male', { size: 22 }));
 
     genderWrap.append(btnF, btnM);
     row.append(lead, input, genderWrap);
     frag.appendChild(row);
-    rowRefs.push({ row, input, btnF, btnM });
+    rowRefs.push({ row, leadLabel, input, btnF, btnM, slotNum });
 
     input.addEventListener('input', () => {
       const g = Store.getActiveGroup();
@@ -135,7 +124,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   }
   seatsGrid.replaceChildren(frag);
 
-  // 名單設定頁第 3~12 格組員支援拖曳手把交換位置（第 1 格家長、第 2 格副家長固定不動）
+  // 第 3~12 格支援拖曳互換順序（含小天使標籤跟著人一起換位）
   let rowDrag = null;
   seatsGrid.addEventListener('pointerdown', (e) => {
     const handle = e.target.closest('[data-drag-handle]');
@@ -152,8 +141,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
 
   seatsGrid.addEventListener('pointermove', (e) => {
     if (!rowDrag || e.pointerId !== rowDrag.pointerId) return;
-    const elUnder = document.elementFromPoint(e.clientX, e.clientY);
-    const targetRow = elUnder?.closest?.('.setup-seat-row');
+    const targetRow = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.setup-seat-row');
     const idx = targetRow ? Number(targetRow.dataset.index) : -1;
     const validIdx = Number.isInteger(idx) && idx >= 2 ? idx : rowDrag.fromIdx;
     if (validIdx !== rowDrag.overIdx) {
@@ -175,14 +163,31 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   seatsGrid.addEventListener('pointerup', finishRowDrag);
   seatsGrid.addEventListener('pointercancel', finishRowDrag);
 
+  function syncRowRoleBadge(idx, seat, familyStr) {
+    const { leadLabel, input, btnF, btnM, slotNum } = rowRefs[idx];
+    const roleText = formatRoleLabel(seat.role, familyStr);
+    leadLabel.replaceChildren();
+    if (roleText) {
+      const pill = document.createElement('span');
+      pill.className = 'role-pill' + (seat.role.startsWith('A') ? ' role-pill-angel' : '');
+      pill.textContent = roleText;
+      leadLabel.appendChild(pill);
+    } else {
+      leadLabel.textContent = String(slotNum);
+    }
+    const labelBase = roleText || `座位 ${slotNum}`;
+    input.placeholder = roleText ? `${roleText}姓名` : '輸入姓名';
+    input.setAttribute('aria-label', `${labelBase} 姓名`);
+    btnF.setAttribute('aria-label', `${labelBase} 女`);
+    btnM.setAttribute('aria-label', `${labelBase} 男`);
+  }
+
   function syncRowGender(idx, gender) {
     const { btnF, btnM } = rowRefs[idx];
-    const isF = gender === 'F';
-    const isM = gender === 'M';
-    btnF.classList.toggle('is-active', isF);
-    btnM.classList.toggle('is-active', isM);
-    btnF.setAttribute('aria-pressed', String(isF));
-    btnM.setAttribute('aria-pressed', String(isM));
+    btnF.classList.toggle('is-active', gender === 'F');
+    btnM.classList.toggle('is-active', gender === 'M');
+    btnF.setAttribute('aria-pressed', String(gender === 'F'));
+    btnM.setAttribute('aria-pressed', String(gender === 'M'));
   }
 
   function syncGroupSelect() {
@@ -192,8 +197,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     all.forEach((grp) => {
       const opt = document.createElement('option');
       opt.value = grp.id;
-      const n = Store.activeSeats(grp).length;
-      opt.textContent = `${formatGroupTitle(grp)}（${n} 人）`;
+      opt.textContent = `${formatGroupTitle(grp)}（${Store.activeSeats(grp).length} 人）`;
       opt.selected = grp.id === active.id;
       groupSelect.appendChild(opt);
     });
@@ -216,6 +220,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     g.seats.forEach((seat, idx) => {
       const ref = rowRefs[idx];
       if (document.activeElement !== ref.input) ref.input.value = seat.name;
+      syncRowRoleBadge(idx, seat, g.family);
       syncRowGender(idx, seat.gender);
     });
     syncHeaderStats();
@@ -228,8 +233,10 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   });
 
   familyInput.addEventListener('input', () => {
-    Store.getActiveGroup().family = cleanText(familyInput.value, 30);
+    const g = Store.getActiveGroup();
+    g.family = cleanText(familyInput.value, 30);
     Store.save();
+    g.seats.forEach((seat, idx) => syncRowRoleBadge(idx, seat, g.family));
     syncGroupSelect();
   });
 
@@ -243,11 +250,11 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   });
 
   function applyBulkRosterText(rawText) {
-    const parsed = parseRosterText(rawText);
-    if (!parsed.count) { announce('未解析到有效姓名，請確認每行一個名字'); return; }
     const g = Store.getActiveGroup();
+    const parsed = parseRosterText(rawText, { isAdvanced: g.isAdvanced });
+    if (!parsed.count) { announce('未解析到有效姓名，請確認每行一個名字'); return; }
     Store.applyImportedGroup(
-      { course: parsed.course || g.course, family: parsed.family || g.family, seats: parsed.seats },
+      { course: parsed.course || g.course, family: parsed.family || g.family, isAdvanced: g.isAdvanced, seats: parsed.seats },
       { keepDone: true, targetGroupId: g.id }
     );
     render();
@@ -260,15 +267,11 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     pasteModal.hidden = false;
     pasteTextarea.focus();
   });
-
-  pasteApplyBtn.addEventListener('click', () => {
-    applyBulkRosterText(pasteTextarea.value);
-    pasteModal.hidden = true;
-  });
-
+  pasteApplyBtn.addEventListener('click', () => { applyBulkRosterText(pasteTextarea.value); pasteModal.hidden = true; });
   pasteCloseBtns.forEach((b) => b.addEventListener('click', () => { pasteModal.hidden = true; }));
   pasteModal.addEventListener('click', (e) => { if (e.target === pasteModal) pasteModal.hidden = true; });
   ocrBtn.addEventListener('click', () => onOpenOcr());
+
   circleDirectBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
     g.shareMode = 'circle';

@@ -1,15 +1,18 @@
 /* 本機狀態管理（localStorage 多組別獨立存檔）
-   - seats[0] 永遠為「家長」，seats[1] 永遠為「副家長」，seats[2..11] 為 10 個可拖曳換位之組員槽
-   - 支援「桌次座位 (table)」與「就地圍圈純計時 (circle：以家長為起點，順時針／逆時針，不看人名)」雙模式 */
+   - seats[0] 永遠為「家長」('P')，seats[1] 永遠為「副家長」('S')
+   - 大堂課預設 seats[2] 為「小天使{}」('A1')、seats[3] 為「小天使{}.」('A2')；拖曳換座位時 role 跟著人一起移動 */
 
-import { cleanPersonName, cleanText, emptySeats, normalizeGender, PARENT_INDEX, SUB_PARENT_INDEX, TOTAL_SEATS } from './codec.js';
+import {
+  ANGEL1_INDEX, ANGEL2_INDEX, cleanPersonName, cleanText, emptySeats,
+  normalizeGender, normalizeRole, PARENT_INDEX, SUB_PARENT_INDEX, TOTAL_SEATS,
+} from './codec.js';
 
 export const STORAGE_KEY = 'familyTimer.v2';
 export const DEFAULT_DURATION = 60;
 export const MIN_DURATION = 5;
 export const MAX_DURATION = 59 * 60 + 55;
 export const DEFAULT_OVERTIME_FULL = 30;
-const SEAT_SCHEMA_VERSION = 2; // v2: 0=家長, 1=副家長
+const SEAT_SCHEMA_VERSION = 3; // v3: 保留每位組員的 A1(小天使{}) / A2(小天使{}.) 角色標籤
 
 const storage = (() => {
   try {
@@ -17,32 +20,25 @@ const storage = (() => {
     window.localStorage.setItem(k, k);
     window.localStorage.removeItem(k);
     return window.localStorage;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 })();
 
 let seq = 0;
-function makeId() {
-  return 'grp_' + Date.now().toString(36) + '_' + (seq++).toString(36) + '_' + Math.random().toString(36).slice(2, 6);
-}
+const makeId = () => 'grp_' + Date.now().toString(36) + '_' + (seq++).toString(36) + '_' + Math.random().toString(36).slice(2, 6);
 
 export function clampDuration(sec) {
   const n = Number(sec);
-  if (!Number.isFinite(n)) return DEFAULT_DURATION;
-  return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(n)));
+  return Number.isFinite(n) ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(n))) : DEFAULT_DURATION;
 }
 
 export function clampOvertimeFull(sec) {
   const n = Number(sec);
-  if (!Number.isFinite(n) || n < 10) return DEFAULT_OVERTIME_FULL;
-  return Math.min(1800, Math.round(n));
+  return Number.isFinite(n) && n >= 10 ? Math.min(1800, Math.round(n)) : DEFAULT_OVERTIME_FULL;
 }
 
 export function clampCircleTotal(n) {
   const v = Math.round(Number(n));
-  if (!Number.isFinite(v)) return TOTAL_SEATS;
-  return Math.min(24, Math.max(2, v));
+  return Number.isFinite(v) ? Math.min(24, Math.max(2, v)) : TOTAL_SEATS;
 }
 
 export function normalizeGroupIdentity(course, family) {
@@ -63,25 +59,41 @@ export function isLockedRoleIndex(idx) {
   return idx === PARENT_INDEX || idx === SUB_PARENT_INDEX;
 }
 
-function sanitizeSeats(rawSeats, rawSchemaVersion) {
-  const base = emptySeats();
+function sanitizeSeats(rawSeats, rawSchemaVersion, isAdvanced) {
+  const base = emptySeats({ isAdvanced });
   if (!Array.isArray(rawSeats)) return base;
   rawSeats.slice(0, TOTAL_SEATS).forEach((s, idx) => {
     if (!s || typeof s !== 'object') return;
     const name = cleanPersonName(s.name);
+    const savedRole = normalizeRole(s.role);
+    const role = idx === PARENT_INDEX ? 'P'
+      : idx === SUB_PARENT_INDEX ? 'S'
+      : savedRole === 'A1' || savedRole === 'A2' ? savedRole
+      : '';
     base[idx] = {
       slot: idx + 1,
       name,
       gender: name ? normalizeGender(s.gender) : '',
+      role,
       done: Boolean(name && s.done === true),
     };
   });
-  // 相容升級：舊版 schema (家長在 index 7) 自動將 index 7 與 index 0 對調
-  if (rawSchemaVersion !== SEAT_SCHEMA_VERSION && (base[7].name || base[0].name)) {
-    const oldZero = { ...base[0], slot: 8 };
-    const oldParent = { ...base[7], slot: 1 };
+
+  // 舊版 v1 -> v2 家長索引遷移
+  if ((!rawSchemaVersion || rawSchemaVersion < 2) && (base[7].name || base[0].name)) {
+    const oldZero = { ...base[0], slot: 8, role: '' };
+    const oldParent = { ...base[7], slot: 1, role: 'P' };
     base[0] = oldParent;
     base[7] = oldZero;
+  }
+
+  // v2 -> v3 補齊預設第 3、4 格的小天使{} 與 小天使{}. 標記（非進階課時）
+  if (!isAdvanced && (!rawSchemaVersion || rawSchemaVersion < 3)) {
+    const hasAngel = base.some((s) => s.role === 'A1' || s.role === 'A2');
+    if (!hasAngel) {
+      base[ANGEL1_INDEX].role = 'A1';
+      base[ANGEL2_INDEX].role = 'A2';
+    }
   }
   return base;
 }
@@ -98,12 +110,14 @@ function sanitizeCircle(rawCircle, activeMemberCount) {
 
 function sanitizeGroup(raw, fallbackId) {
   const id = typeof raw?.id === 'string' && raw.id ? raw.id : fallbackId || makeId();
-  const seats = sanitizeSeats(raw?.seats, raw?.seatSchema);
+  const isAdvanced = Boolean(raw?.isAdvanced);
+  const seats = sanitizeSeats(raw?.seats, raw?.seatSchema, isAdvanced);
   const activeCount = seats.filter((s) => s.name).length;
   const shareMode = raw?.shareMode === 'circle' ? 'circle' : 'table';
   return {
     id,
     seatSchema: SEAT_SCHEMA_VERSION,
+    isAdvanced,
     course: cleanText(raw?.course, 30),
     family: cleanText(raw?.family, 30),
     duration: clampDuration(raw?.duration),
@@ -156,11 +170,7 @@ export const Store = {
     try {
       const active = this.getActiveGroup();
       if (active) active.updatedAt = Date.now();
-      storage.setItem(STORAGE_KEY, JSON.stringify({
-        version: 2,
-        activeGroupId: db.activeGroupId,
-        groups: db.groups,
-      }));
+      storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, activeGroupId: db.activeGroupId, groups: db.groups }));
     } catch {
       /* quota / private browsing */
     }
@@ -232,13 +242,9 @@ export const Store = {
     this.save();
   },
 
-  /**
-   * 交換兩個組員座位（第 3~12 格，即 index 2..11）：
-   * 家長 (index 0) 與副家長 (index 1) 固定鎖定不可交換。
-   */
+  /** 交換兩個組員座位（index 2..11），小天使標籤隨人一起移動；正副家長 (0, 1) 固定鎖定 */
   swapMemberSeats(idxA, idxB) {
-    if (idxA === idxB) return false;
-    if (isLockedRoleIndex(idxA) || isLockedRoleIndex(idxB)) return false;
+    if (idxA === idxB || isLockedRoleIndex(idxA) || isLockedRoleIndex(idxB)) return false;
     const g = this.getActiveGroup();
     if (!g.seats[idxA] || !g.seats[idxB]) return false;
     const a = { ...g.seats[idxA], slot: idxB + 1 };
@@ -257,27 +263,25 @@ export const Store = {
     }
   },
 
-  applyImportedGroup({ course, family, seats }, { keepDone = false, targetGroupId = null } = {}) {
+  applyImportedGroup({ course, family, isAdvanced = false, seats }, { keepDone = false, targetGroupId = null } = {}) {
     let target = (targetGroupId && db.groups[targetGroupId]) || this.findGroupByIdentity(course, family);
     if (!target) {
       const cur = this.getActiveGroup();
-      if (!this.hasActiveMembers(cur) && !cur.course && !cur.family) {
-        target = cur;
-      } else {
+      if (!this.hasActiveMembers(cur) && !cur.course && !cur.family) target = cur;
+      else {
         target = createBlankGroup(course, family);
         db.groups[target.id] = target;
       }
     }
     const prevDoneByName = new Map();
     if (keepDone) {
-      target.seats.forEach((s) => {
-        if (s.name && s.done) prevDoneByName.set(s.name, true);
-      });
+      target.seats.forEach((s) => { if (s.name && s.done) prevDoneByName.set(s.name, true); });
     }
     if (course) target.course = cleanText(course, 30);
     if (family) target.family = cleanText(family, 30);
+    target.isAdvanced = Boolean(isAdvanced);
     target.seatSchema = SEAT_SCHEMA_VERSION;
-    target.seats = sanitizeSeats(seats, SEAT_SCHEMA_VERSION).map((s) => ({
+    target.seats = sanitizeSeats(seats, SEAT_SCHEMA_VERSION, target.isAdvanced).map((s) => ({
       ...s,
       done: Boolean(keepDone && s.name && prevDoneByName.get(s.name)),
     }));
@@ -289,11 +293,8 @@ export const Store = {
 
   resetDoneStatus() {
     const g = this.getActiveGroup();
-    if (g.shareMode === 'circle') {
-      g.circle.done = [];
-    } else {
-      g.seats.forEach((s) => { s.done = false; });
-    }
+    if (g.shareMode === 'circle') g.circle.done = [];
+    else g.seats.forEach((s) => { s.done = false; });
     this.save();
   },
 };
