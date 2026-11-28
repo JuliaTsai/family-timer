@@ -56,6 +56,29 @@ export function formatRoleLabel(role, familyStr = '') {
   return '';
 }
 
+/** 正規化排座位背景資訊（公司、職稱、介紹人、關懷員、小天使、年齡、生命數字、主命數；全空回傳 null） */
+export function normalizeMeta(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  const co = cleanText(raw.co, 40);
+  const ti = cleanText(raw.ti, 28);
+  const intro = cleanText(raw.in, 32);
+  const cm = cleanText(raw.cm, 32);
+  const la = cleanText(raw.la, 32);
+  const ag = Number(raw.ag);
+  const ln = cleanText(raw.ln, 24);
+  const mn = cleanText(raw.mn, 8);
+  if (co) out.co = co;
+  if (ti) out.ti = ti;
+  if (intro) out.in = intro;
+  if (cm) out.cm = cm;
+  if (la) out.la = la;
+  if (Number.isFinite(ag) && ag > 0 && ag <= 120) out.ag = Math.round(ag);
+  if (ln) out.ln = ln;
+  if (mn) out.mn = mn;
+  return Object.keys(out).length ? out : null;
+}
+
 export function emptySeats({ isAdvanced = false } = {}) {
   return Array.from({ length: TOTAL_SEATS }, (_, i) => ({
     slot: i + 1,
@@ -66,6 +89,7 @@ export function emptySeats({ isAdvanced = false } = {}) {
       : !isAdvanced && i === ANGEL1_INDEX ? 'A1'
       : !isAdvanced && i === ANGEL2_INDEX ? 'A2'
       : '',
+    meta: null,
     done: false,
   }));
 }
@@ -84,24 +108,17 @@ export function assignMembersTo12Seats(items, { isAdvanced = false } = {}) {
     if (!name) continue;
     const gender = normalizeGender(item.gender);
     const role = normalizeRole(item.role);
+    const meta = normalizeMeta(item.meta);
     if (role === 'P' && !seats[PARENT_INDEX].name) {
-      seats[PARENT_INDEX].name = name;
-      seats[PARENT_INDEX].gender = gender;
-      seats[PARENT_INDEX].role = 'P';
+      Object.assign(seats[PARENT_INDEX], { name, gender, role: 'P', meta });
     } else if (role === 'S' && !seats[SUB_PARENT_INDEX].name) {
-      seats[SUB_PARENT_INDEX].name = name;
-      seats[SUB_PARENT_INDEX].gender = gender;
-      seats[SUB_PARENT_INDEX].role = 'S';
+      Object.assign(seats[SUB_PARENT_INDEX], { name, gender, role: 'S', meta });
     } else if (role === 'A1' && !seats[ANGEL1_INDEX].name) {
-      seats[ANGEL1_INDEX].name = name;
-      seats[ANGEL1_INDEX].gender = gender;
-      seats[ANGEL1_INDEX].role = 'A1';
+      Object.assign(seats[ANGEL1_INDEX], { name, gender, role: 'A1', meta });
     } else if (role === 'A2' && !seats[ANGEL2_INDEX].name) {
-      seats[ANGEL2_INDEX].name = name;
-      seats[ANGEL2_INDEX].gender = gender;
-      seats[ANGEL2_INDEX].role = 'A2';
+      Object.assign(seats[ANGEL2_INDEX], { name, gender, role: 'A2', meta });
     } else {
-      others.push({ name, gender, role });
+      others.push({ name, gender, role, meta });
     }
   }
 
@@ -115,6 +132,7 @@ export function assignMembersTo12Seats(items, { isAdvanced = false } = {}) {
     const targetIdx = fillOrder[cursor];
     seats[targetIdx].name = person.name;
     seats[targetIdx].gender = person.gender;
+    seats[targetIdx].meta = person.meta;
     if (person.role && targetIdx >= 2) seats[targetIdx].role = person.role;
     cursor++;
   }
@@ -149,6 +167,7 @@ export function decodeUrlHashPayload(hashStr) {
           seats[idx].name = cleanPersonName(row[0]);
           seats[idx].gender = normalizeGender(row[1]);
           if (row[2] !== undefined && idx >= 2) seats[idx].role = normalizeRole(row[2]);
+          if (row[3] !== undefined) seats[idx].meta = normalizeMeta(row[3]);
         }
       });
       return { course, family, isAdvanced, seats };
@@ -157,10 +176,11 @@ export function decodeUrlHashPayload(hashStr) {
     if (Array.isArray(json.p)) {
       const items = json.p
         .filter((r) => Array.isArray(r) && r[0])
-        .map(([name, gender, role]) => ({
+        .map(([name, gender, role, meta]) => ({
           name: cleanPersonName(String(name).replace(/^\d+[_\s]+/, '').replace(/\(.*?\)|（.*?）/g, '')),
           gender: normalizeGender(gender),
           role: normalizeRole(role),
+          meta: normalizeMeta(meta),
         }));
       return { course, family, isAdvanced, seats: assignMembersTo12Seats(items, { isAdvanced }) };
     }

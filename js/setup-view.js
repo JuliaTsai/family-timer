@@ -4,6 +4,7 @@
 
 import { cleanPersonName, cleanText, formatRoleLabel, parseRosterText, TOTAL_SEATS } from './codec.js';
 import { createIcon } from './icons.js';
+import { bindSetupProfileBar } from './seat-profile.js';
 import { formatGroupTitle, isLockedRoleIndex, Store } from './store.js';
 
 const IME_SETTLE_MS = 100;
@@ -12,6 +13,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   const courseInput = root.querySelector('#courseInput');
   const familyInput = root.querySelector('#familyInput');
   const seatCountLabel = root.querySelector('#setupSeatCount');
+  const setupProfileSlot = root.querySelector('#setupProfileSlot');
   const seatsGrid = root.querySelector('#setupSeatsGrid');
   const pasteBtn = root.querySelector('#openPasteBtn');
   const ocrBtn = root.querySelector('#openOcrBtn');
@@ -73,20 +75,17 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
 
     const genderWrap = document.createElement('div');
     genderWrap.className = 'setup-gender-group';
-
-    const btnF = document.createElement('button');
-    btnF.type = 'button';
-    btnF.className = 'gender-toggle gender-f';
-    btnF.dataset.gender = 'F';
-    btnF.setAttribute('aria-pressed', 'false');
-    btnF.appendChild(createIcon('female', { size: 22 }));
-
-    const btnM = document.createElement('button');
-    btnM.type = 'button';
-    btnM.className = 'gender-toggle gender-m';
-    btnM.dataset.gender = 'M';
-    btnM.setAttribute('aria-pressed', 'false');
-    btnM.appendChild(createIcon('male', { size: 22 }));
+    const makeGenderBtn = (code, cls, iconName) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `gender-toggle ${cls}`;
+      b.dataset.gender = code;
+      b.setAttribute('aria-pressed', 'false');
+      b.appendChild(createIcon(iconName, { size: 22 }));
+      return b;
+    };
+    const btnF = makeGenderBtn('F', 'gender-f', 'female');
+    const btnM = makeGenderBtn('M', 'gender-m', 'male');
 
     genderWrap.append(btnF, btnM);
     row.append(lead, input, genderWrap);
@@ -97,17 +96,17 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
       const g = Store.getActiveGroup();
       const cleaned = cleanPersonName(input.value);
       g.seats[idx].name = cleaned;
-      if (!cleaned) g.seats[idx].done = false;
+      if (!cleaned) { g.seats[idx].done = false; g.seats[idx].meta = null; }
       Store.syncCircleTotalFromRoster(g);
       Store.save();
       syncHeaderStats();
+      profileBar.sync();
     });
 
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !isImeBusy(e)) {
         e.preventDefault();
-        const next = rowRefs[idx + 1];
-        if (next) next.input.focus();
+        if (rowRefs[idx + 1]) rowRefs[idx + 1].input.focus();
         else input.blur();
       }
     });
@@ -123,8 +122,9 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     });
   }
   seatsGrid.replaceChildren(frag);
+  const profileBar = bindSetupProfileBar({ slotEl: setupProfileSlot, seatsGrid, rowRefs, getGroup: () => Store.getActiveGroup() });
 
-  // 第 3~12 格支援拖曳互換順序（含小天使標籤跟著人一起換位）
+  // 第 3~12 格支援拖曳互換順序（含小天使標籤與學員資訊跟著人一起換位）
   let rowDrag = null;
   seatsGrid.addEventListener('pointerdown', (e) => {
     const handle = e.target.closest('[data-drag-handle]');
@@ -156,6 +156,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     rowDrag = null;
     rowRefs.forEach((r) => r.row.classList.remove('is-dragging', 'is-drop-target'));
     if (fromIdx !== overIdx && Store.swapMemberSeats(fromIdx, overIdx)) {
+      profileBar.followSwap(fromIdx, overIdx);
       render();
       announce(`已將座位 ${fromIdx + 1} 與座位 ${overIdx + 1} 互換`);
     }
@@ -224,6 +225,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
       syncRowGender(idx, seat.gender);
     });
     syncHeaderStats();
+    profileBar.sync();
   }
 
   courseInput.addEventListener('input', () => {
@@ -231,19 +233,20 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     Store.save();
     syncGroupSelect();
   });
-
   familyInput.addEventListener('input', () => {
     const g = Store.getActiveGroup();
     g.family = cleanText(familyInput.value, 30);
     Store.save();
     g.seats.forEach((seat, idx) => syncRowRoleBadge(idx, seat, g.family));
     syncGroupSelect();
+    profileBar.sync();
   });
-
-  groupSelect.addEventListener('change', () => { if (Store.switchGroup(groupSelect.value)) render(); });
-
+  groupSelect.addEventListener('change', () => {
+    if (Store.switchGroup(groupSelect.value)) { profileBar.reset(); render(); }
+  });
   newGroupBtn.addEventListener('click', () => {
     Store.createAndSwitchGroup('', '');
+    profileBar.reset();
     render();
     courseInput.focus();
     announce('已建立新空白組別');
@@ -262,8 +265,7 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   }
 
   pasteBtn.addEventListener('click', () => {
-    const g = Store.getActiveGroup();
-    pasteTextarea.value = g.seats.map((s) => s.name).filter(Boolean).join('\n');
+    pasteTextarea.value = Store.getActiveGroup().seats.map((s) => s.name).filter(Boolean).join('\n');
     pasteModal.hidden = false;
     pasteTextarea.focus();
   });
@@ -271,7 +273,6 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
   pasteCloseBtns.forEach((b) => b.addEventListener('click', () => { pasteModal.hidden = true; }));
   pasteModal.addEventListener('click', (e) => { if (e.target === pasteModal) pasteModal.hidden = true; });
   ocrBtn.addEventListener('click', () => onOpenOcr());
-
   circleDirectBtn.addEventListener('click', () => {
     const g = Store.getActiveGroup();
     g.shareMode = 'circle';
@@ -294,6 +295,5 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     onStartTable();
   });
   backToTimerBtn.addEventListener('click', () => (Store.getActiveGroup().shareMode === 'circle' ? onStartCircle() : onStartTable()));
-
   return { render, applyBulkRosterText };
 }

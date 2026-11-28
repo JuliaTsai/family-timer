@@ -4,6 +4,7 @@ import { initCircleView } from './circle-view.js';
 import { initDrawerView } from './drawer-view.js';
 import { createIcon } from './icons.js';
 import { initSeatDrag } from './seat-drag.js';
+import { createProfileInspector, syncArrangeProfileSlots } from './seat-profile.js';
 import { buildMemberListCard, renderRingSeatButton, TABLE_SEAT_COORDS } from './seat-renderer.js';
 import { isLockedRoleIndex, Store } from './store.js';
 
@@ -18,6 +19,8 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
   const menuBtn = root.querySelector('#openDrawerBtn');
   const stageOuter = root.querySelector('#stageOuter');
   const stageCanvas = root.querySelector('#stageCanvas');
+  const dialInner = root.querySelector('#dialInner');
+  const dialProfileWrap = root.querySelector('#dialProfileWrap');
   const dialProgress = root.querySelector('#dialProgress');
   const dialHint = root.querySelector('#dialHint');
   const dialSpeaker = root.querySelector('#dialSpeaker');
@@ -31,6 +34,7 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
   const endBtnText = root.querySelector('#endBtnText');
   const dotsWrap = root.querySelector('#progressDots');
   const progressText = root.querySelector('#progressSummary');
+  const mobileProfileSlot = root.querySelector('#mobileProfileSlot');
   const mobileSeatsWrap = root.querySelector('#mobileSeatList');
   const mobileCircleGrid = root.querySelector('#mobileCircleGrid');
 
@@ -44,6 +48,7 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
 
   let arranging = false;
   let mobileSwapFirstIdx = null; // 手機排座位：點第 1 人再點第 2 人直接對調
+  const profileInspector = createProfileInspector({ onChange: () => renderAll() });
 
   const seatButtons = TABLE_SEAT_COORDS.map((cfg, idx) => {
     const btn = document.createElement('button');
@@ -71,7 +76,9 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
     seatButtons,
     isArrangeMode: () => arranging,
     onTapSeat: (idx) => engine.toggleSeatOrStart(idx),
-    onSeatsSwapped: () => renderAll(),
+    onInspectSeat: (idx) => profileInspector.togglePin(idx),
+    onHoverSeat: (idx) => profileInspector.hover(idx),
+    onSeatsSwapped: (fromIdx, overIdx) => { profileInspector.followSwap(fromIdx, overIdx); renderAll(); },
     announce,
   });
 
@@ -144,7 +151,10 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
   function renderAll() {
     const g = Store.getActiveGroup();
     const isCircle = g.shareMode === 'circle';
-    if (isCircle && arranging) { arranging = false; mobileSwapFirstIdx = null; }
+    if (isCircle && arranging) { arranging = false; mobileSwapFirstIdx = null; profileInspector.reset(); }
+    const inspectedIdx = syncArrangeProfileSlots({
+      arranging, group: g, inspector: profileInspector, dialInner, dialProfileWrap, mobileProfileSlot,
+    });
 
     const c = engine.computeClock();
     const activeIdx = engine.activeSlotIndex();
@@ -164,9 +174,10 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
     arrangeSeatsBtn.classList.toggle('is-active', arranging);
     arrangeSeatsText.textContent = arranging ? '完成排位' : '排座位';
 
-    g.seats.forEach((seat, idx) =>
-      renderRingSeatButton(seatButtons[idx], seat, idx, { isTableActive, activeIdx, mode: c.mode, arranging })
-    );
+    g.seats.forEach((seat, idx) => {
+      renderRingSeatButton(seatButtons[idx], seat, idx, { isTableActive, activeIdx, mode: c.mode, arranging });
+      seatButtons[idx].classList.toggle('is-inspected', Boolean(arranging && idx === inspectedIdx && seat.name));
+    });
     circleCtrl.renderCircle();
 
     const totalCount = isCircle ? g.circle.total : Store.activeSeats(g).length;
@@ -198,6 +209,7 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
             })();
         if (arranging) {
           card.classList.toggle('is-swap-picked', idx === mobileSwapFirstIdx);
+          card.classList.toggle('is-inspected', idx === inspectedIdx && Boolean(seat.name));
           card.classList.toggle('is-locked-card', isLockedRoleIndex(idx));
         }
         mFrag.appendChild(card);
@@ -221,6 +233,7 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
     engine.clear();
     arranging = false;
     mobileSwapFirstIdx = null;
+    profileInspector.reset();
     g.shareMode = nextMode;
     if (nextMode === 'circle') Store.syncCircleTotalFromRoster(g);
     Store.save();
@@ -234,8 +247,9 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
     engine.clear();
     arranging = !arranging;
     mobileSwapFirstIdx = null;
+    profileInspector.reset();
     renderAll();
-    announce(arranging ? '排座位模式：可拖曳或依序點兩位組員互換位置，正副家長固定' : '已完成排位');
+    announce(arranging ? '排座位模式：點選學員可固定查看背景資訊，拖曳可換座位' : '已完成排位');
   });
 
   circleIdleStartBtn.addEventListener('click', () => engine.startOrAdvanceCircle());
@@ -252,17 +266,21 @@ export function initTimerView({ appEl, root, drawer, engine, onEditSetup, announ
       return;
     }
     if (isLockedRoleIndex(idx)) {
+      profileInspector.pin(idx);
       announce('家長與副家長的座位固定不變');
       return;
     }
     if (mobileSwapFirstIdx === null) {
+      if (!Store.getActiveGroup().seats[idx]?.name) return;
       mobileSwapFirstIdx = idx;
-      renderAll();
+      profileInspector.pin(idx);
     } else if (mobileSwapFirstIdx === idx) {
       mobileSwapFirstIdx = null;
-      renderAll();
+      profileInspector.unpin();
     } else {
-      Store.swapMemberSeats(mobileSwapFirstIdx, idx);
+      const fromIdx = mobileSwapFirstIdx;
+      Store.swapMemberSeats(fromIdx, idx);
+      profileInspector.followSwap(fromIdx, idx);
       mobileSwapFirstIdx = null;
       renderAll();
       announce('已互換組員座位');

@@ -1,0 +1,245 @@
+/* 排座位學員背景提示卡樣式（圓桌中央盤面、名單設定橫幅、手機排座位卡片） */
+
+.dial-inner[hidden],
+.dial-profile-wrap[hidden],
+.setup-profile-slot[hidden],
+.mobile-profile-slot[hidden] {
+  display: none !important;
+}
+
+.dial-profile-wrap {
+  position: absolute;
+  inset: 0;
+  padding: 28px 30px 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 2;
+}
+
+.seat-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.seat-profile-card.is-compact {
+  padding: 12px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--sage);
+  background: var(--surface);
+  gap: 9px;
+}
+
+.prof-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.prof-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.prof-role-pill {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 13px;
+}
+
+.prof-name {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  line-height: 1.2;
+}
+
+.seat-profile-card.is-compact .prof-name {
+  font-size: 19px;
+}
+
+.prof-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.prof-state-badge {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 12px;
+  color: var(--ink2);
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.prof-state-badge.is-pinned {
+  border-color: var(--sage);
+  background: var(--sage);
+  color: #FBFAF7;
+}
+
+.prof-close-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+  color: var(--ink2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.prof-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.prof-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.prof-chip.is-highlight {
+  border-color: var(--sage);
+  background: var(--halo);
+}
+
+.prof-chip-k {
+  color: var(--ink2);
+  font-size: 12px;
+}
+
+.prof-chip-v {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.prof-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 12px;
+}
+
+.seat-profile-card.is-compact .prof-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.prof-field {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.prof-field.is-wide {
+  grid-column: 1 / -1;
+}
+
+.seat-profile-card.is-compact .prof-field.is-wide {
+  grid-column: span 2;
+}
+
+.prof-label {
+  font-size: 12px;
+  color: var(--ink3);
+  letter-spacing: .04em;
+}
+
+.prof-val {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prof-val.is-empty {
+  color: var(--ink3);
+  font-weight: 400;
+}
+
+.prof-empty {
+  margin: 10px 0;
+  font-size: 15px;
+  color: var(--ink2);
+  text-align: center;
+}
+
+.prof-foot-hint {
+  margin: 2px 0 0;
+  padding-top: 7px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px;
+  color: var(--ink3);
+  text-align: center;
+  letter-spacing: .04em;
+}
+
+.setup-profile-slot {
+  margin-bottom: 10px;
+}
+
+.setup-prof-guide {
+  padding: 9px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--line-strong);
+  background: var(--surface-soft);
+  font-size: 14px;
+  color: var(--ink2);
+}
+
+.setup-seat-row.is-inspected {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 1.5px var(--sage);
+}
+
+.ring-seat.is-inspected {
+  background: var(--halo) !important;
+  box-shadow: 0 0 0 2px var(--sage);
+}
+
+@media (max-width: 740px) {
+  .seat-profile-card.is-compact .prof-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .seat-profile-card.is-compact .prof-field.is-wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 700px) {
+  .dial-profile-wrap {
+    display: none !important;
+  }
+  .mobile-profile-slot {
+    display: block;
+  }
+}

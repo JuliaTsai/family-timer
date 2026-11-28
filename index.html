@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="./styles/circle.css">
   <link rel="stylesheet" href="./styles/panels.css">
   <link rel="stylesheet" href="./styles/modals.css">
+  <link rel="stylesheet" href="./styles/profile.css">
   <link rel="stylesheet" href="./styles/mobile.css">
   <title>家庭分享計時</title>
 </head>
@@ -58,7 +59,7 @@
           <span class="setup-section-title" id="setupSeatCount">座位名單 · 12 座位</span>
           <span class="setup-section-note">第 1 格固定家長、第 2 格固定副家長 · 3～12 可拖曳換順序</span>
         </div>
-
+        <div class="setup-profile-slot" id="setupProfileSlot" aria-live="polite" hidden></div>
         <div class="setup-seats-grid" id="setupSeatsGrid" role="group" aria-label="12 個座位名單"></div>
 
         <footer class="setup-footer">
@@ -122,28 +123,28 @@
               <path class="dial-progress is-hidden" id="dialProgress" pathLength="100" d="M240 1.5 H360 A118.5 118.5 0 0 1 478.5 120 V360 A118.5 118.5 0 0 1 360 478.5 H120 A118.5 118.5 0 0 1 1.5 360 V120 A118.5 118.5 0 0 1 120 1.5 Z"/>
             </svg>
 
-            <div class="dial-inner">
+            <div class="dial-inner" id="dialInner">
               <span class="dial-hint" id="dialHint">點選名字開始</span>
               <span class="dial-speaker" id="dialSpeaker" hidden></span>
               <span class="dial-clock" id="dialClock" role="timer" aria-live="off">01:00</span>
-
               <button type="button" class="btn-pill btn-dial-primary circle-start-btn" id="circleIdleStartBtn" hidden><span>開始計時</span></button>
               <div class="dial-controls" id="dialControls" hidden>
                 <button type="button" class="btn-pill btn-dial-primary" id="pauseBtn" data-resume="false"><span id="pauseBtnText">暫停</span></button>
                 <button type="button" class="btn-pill btn-dial-next" id="nextCircleBtn" hidden><span>下一位</span></button>
                 <button type="button" class="btn-pill btn-dial-end" id="endBtn"><span id="endBtnText">結束</span></button>
               </div>
-
               <div class="dial-progress-summary" role="group" aria-label="分享進度">
                 <div class="progress-dots" id="progressDots" aria-hidden="true"></div>
                 <span class="progress-text" id="progressSummary">已分享 0 / 0</span>
               </div>
             </div>
+            <div class="dial-profile-wrap" id="dialProfileWrap" aria-live="polite" hidden></div>
           </div>
         </div>
       </div>
 
-      <!-- 手機直拿輔助：桌次雙欄名單 與 序號／圍圈 4×3 大拇指號碼格 -->
+      <!-- 手機直拿輔助：排位學員資訊卡、桌次雙欄名單 與 序號／圍圈 4×3 大拇指號碼格 -->
+      <section class="mobile-profile-slot" id="mobileProfileSlot" aria-live="polite" hidden></section>
       <section class="mobile-seats" id="mobileSeatList" aria-label="點選成員開始計時"></section>
       <section class="mobile-circle-grid" id="mobileCircleGrid" aria-label="點選序號開始計時" hidden></section>
     </main>

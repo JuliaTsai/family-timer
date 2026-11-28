@@ -3,7 +3,7 @@
    100 組同時打開後各自完全離線運作，零伺服器請求、零互相干擾。 */
 'use strict';
 
-const CACHE_VERSION = 'family-timer-v4';
+const CACHE_VERSION = 'family-timer-v5';
 const OCR_CACHE = 'family-timer-ocr-v1';
 
 const PRECACHE_ASSETS = [
@@ -18,6 +18,7 @@ const PRECACHE_ASSETS = [
   './styles/circle.css',
   './styles/panels.css',
   './styles/modals.css',
+  './styles/profile.css',
   './styles/mobile.css',
   './js/main.js',
   './js/icons.js',
@@ -27,6 +28,7 @@ const PRECACHE_ASSETS = [
   './js/timer-engine.js',
   './js/setup-view.js',
   './js/seat-drag.js',
+  './js/seat-profile.js',
   './js/seat-renderer.js',
   './js/circle-view.js',
   './js/timer-view.js',

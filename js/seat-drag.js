@@ -6,7 +6,7 @@ import { isLockedRoleIndex, Store } from './store.js';
 
 const DRAG_THRESHOLD_PX = 10;
 
-export function initSeatDrag({ stageCanvas, seatButtons, isArrangeMode, onTapSeat, onSeatsSwapped, announce }) {
+export function initSeatDrag({ stageCanvas, seatButtons, isArrangeMode, onTapSeat, onInspectSeat, onHoverSeat, onSeatsSwapped, announce }) {
   let drag = null;
   let ghostEl = null;
 
@@ -46,6 +46,19 @@ export function initSeatDrag({ stageCanvas, seatButtons, isArrangeMode, onTapSea
     });
   }
 
+  stageCanvas.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse' || !isArrangeMode() || drag) return;
+    const btn = e.target.closest('button.ring-seat');
+    if (!btn) return;
+    const idx = Number(btn.dataset.index);
+    const seat = Store.getActiveGroup().seats[idx];
+    if (seat?.name && onHoverSeat) onHoverSeat(idx);
+  });
+
+  stageCanvas.addEventListener('pointerleave', (e) => {
+    if (e.pointerType === 'mouse' && isArrangeMode() && onHoverSeat) onHoverSeat(null);
+  });
+
   stageCanvas.addEventListener('pointerdown', (e) => {
     const btn = e.target.closest('button.ring-seat');
     if (!btn) return;
@@ -54,18 +67,13 @@ export function initSeatDrag({ stageCanvas, seatButtons, isArrangeMode, onTapSea
 
     const g = Store.getActiveGroup();
     const seat = g.seats[idx];
+    if (!seat?.name) return;
 
-    // 家長與副家長在桌次模式下座位固定不變：排位模式下輕點給予提示，一般模式下照常點選計時
+    // 家長與副家長在桌次模式下座位固定不變：排位模式下點一下可固定查看資訊，拖拉時提醒固定
     if (isLockedRoleIndex(idx)) {
-      if (isArrangeMode()) {
-        announce('家長與副家長的座位固定不變');
-      } else if (seat?.name) {
-        drag = { pointerId: e.pointerId, fromIdx: idx, lockedTapOnly: true, startX: e.clientX, startY: e.clientY, moved: false };
-      }
+      drag = { pointerId: e.pointerId, fromIdx: idx, lockedTapOnly: true, startX: e.clientX, startY: e.clientY, moved: false };
       return;
     }
-
-    if (!seat?.name) return; // 空座位不能當起點拖出，但可作為被放入的目標
 
     stageCanvas.setPointerCapture(e.pointerId);
     drag = {
@@ -132,15 +140,22 @@ export function initSeatDrag({ stageCanvas, seatButtons, isArrangeMode, onTapSea
     if (cancelled) return;
 
     if (!cur.moved) {
-      if (!isArrangeMode()) {
+      if (isArrangeMode()) {
+        if (onInspectSeat) onInspectSeat(cur.fromIdx);
+      } else {
         onTapSeat(cur.fromIdx);
       }
       return;
     }
 
+    if (cur.lockedTapOnly && isArrangeMode()) {
+      announce('家長與副家長的座位固定不變');
+      return;
+    }
+
     if (!cur.lockedTapOnly && cur.overIdx >= 2 && cur.overIdx !== cur.fromIdx) {
       if (Store.swapMemberSeats(cur.fromIdx, cur.overIdx)) {
-        onSeatsSwapped();
+        onSeatsSwapped(cur.fromIdx, cur.overIdx);
         announce(`${cur.name} 已更換座位`);
       }
     }

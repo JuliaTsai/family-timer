@@ -4,7 +4,7 @@
 
 import {
   ANGEL1_INDEX, ANGEL2_INDEX, cleanPersonName, cleanText, emptySeats,
-  normalizeGender, normalizeRole, PARENT_INDEX, SUB_PARENT_INDEX, TOTAL_SEATS,
+  normalizeGender, normalizeMeta, normalizeRole, PARENT_INDEX, SUB_PARENT_INDEX, TOTAL_SEATS,
 } from './codec.js';
 
 export const STORAGE_KEY = 'familyTimer.v2';
@@ -75,22 +75,17 @@ function sanitizeSeats(rawSeats, rawSchemaVersion, isAdvanced) {
       name,
       gender: name ? normalizeGender(s.gender) : '',
       role,
+      meta: name ? normalizeMeta(s.meta) : null,
       done: Boolean(name && s.done === true),
     };
   });
-
-  // 舊版 v1 -> v2 家長索引遷移
   if ((!rawSchemaVersion || rawSchemaVersion < 2) && (base[7].name || base[0].name)) {
     const oldZero = { ...base[0], slot: 8, role: '' };
-    const oldParent = { ...base[7], slot: 1, role: 'P' };
-    base[0] = oldParent;
+    base[0] = { ...base[7], slot: 1, role: 'P' };
     base[7] = oldZero;
   }
-
-  // v2 -> v3 補齊預設第 3、4 格的小天使{} 與 小天使{}. 標記（非進階課時）
   if (!isAdvanced && (!rawSchemaVersion || rawSchemaVersion < 3)) {
-    const hasAngel = base.some((s) => s.role === 'A1' || s.role === 'A2');
-    if (!hasAngel) {
+    if (!base.some((s) => s.role === 'A1' || s.role === 'A2')) {
       base[ANGEL1_INDEX].role = 'A1';
       base[ANGEL2_INDEX].role = 'A2';
     }
