@@ -83,6 +83,7 @@ js/
   audio.js              Web Audio 叮咚合成、Web Speech 語音與螢幕防休眠
   timer-engine.js       系統時間差倒數狀態機
   setup-view.js         名單設定畫面互動
+  share-link.js         組別最新名單連結即時編碼、網址列同步與分享／複製動作
   seat-drag.js          圓桌組員座位長按／拖曳換位控制器
   seat-profile.js       排座位學員背景提示卡與固定預覽狀態器
   seat-renderer.js      四周圓桌座位與清單卡片渲染器

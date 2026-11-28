@@ -159,16 +159,20 @@ function loadStoreData() {
 
 const db = loadStoreData();
 
+let onSaveListener = null;
+
 export const Store = {
+  onSave(fn) { onSaveListener = fn; },
+
   save() {
-    if (!storage) return;
-    try {
-      const active = this.getActiveGroup();
-      if (active) active.updatedAt = Date.now();
-      storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, activeGroupId: db.activeGroupId, groups: db.groups }));
-    } catch {
-      /* quota / private browsing */
+    if (storage) {
+      try {
+        const active = this.getActiveGroup();
+        if (active) active.updatedAt = Date.now();
+        storage.setItem(STORAGE_KEY, JSON.stringify({ version: 2, activeGroupId: db.activeGroupId, groups: db.groups }));
+      } catch { /* quota / private browsing */ }
     }
+    if (onSaveListener) onSaveListener();
   },
 
   reloadFromStorage() {

@@ -6,6 +6,8 @@
     gap: 12px;
   }
   .setup-title { font-size: 22px; }
+  .setup-title-group { gap: 6px; }
+  .setup-title-group .btn-sm { height: 34px; padding: 0 11px; font-size: 13px; }
   .offline-pill { font-size: 12px; gap: 5px; }
   .setup-meta-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -79,8 +81,9 @@
     top: calc(var(--safe-top) + 10px);
     right: 14px;
   }
-  .mode-seg-btn { height: 32px; padding: 0 11px; font-size: 13px; }
-  .arrange-btn { height: 36px; padding: 0 12px; font-size: 13px; }
+  .mode-seg-btn { height: 32px; padding: 0 10px; font-size: 13px; }
+  .arrange-btn,
+  .timer-topbar-right [data-action="share-group"] { height: 36px; padding: 0 11px; font-size: 13px; }
   .circle-toolbar { gap: 6px; padding: 0; }
   .circle-count-ctrl { height: 36px; }
   .circle-nodes-layer { display: none !important; }

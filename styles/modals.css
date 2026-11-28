@@ -127,3 +127,26 @@
   flex-direction: column;
   gap: 6px;
 }
+
+.toast-banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 22px);
+  transform: translateX(-50%);
+  z-index: 90;
+  max-width: min(92vw, 540px);
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: var(--btn);
+  color: var(--btn-ink);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .24);
+}
+
+.toast-banner[hidden] {
+  display: none !important;
+}

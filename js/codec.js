@@ -166,7 +166,7 @@ export function decodeUrlHashPayload(hashStr) {
         if (Array.isArray(row)) {
           seats[idx].name = cleanPersonName(row[0]);
           seats[idx].gender = normalizeGender(row[1]);
-          if (row[2] !== undefined && idx >= 2) seats[idx].role = normalizeRole(row[2]);
+          if (idx >= 2) seats[idx].role = normalizeRole(row[2]);
           if (row[3] !== undefined) seats[idx].meta = normalizeMeta(row[3]);
         }
       });

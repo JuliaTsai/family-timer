@@ -4,6 +4,7 @@ import { Bell, bindAudioUnlockGestures, Wake } from './audio.js';
 import { decodeUrlHashPayload } from './codec.js';
 import { initOcrModal } from './ocr.js';
 import { initSetupView } from './setup-view.js';
+import { createToastController, initShareActions, isSelfSyncedHash, syncUrlHashWithActiveGroup } from './share-link.js';
 import { formatGroupTitle, STORAGE_KEY, Store } from './store.js';
 import { createTimerEngine } from './timer-engine.js';
 import { initTimerView } from './timer-view.js';
@@ -16,6 +17,7 @@ const pasteModal = document.getElementById('pasteModal');
 const ocrModal = document.getElementById('ocrModal');
 const importModal = document.getElementById('importModal');
 const announcer = document.getElementById('announcer');
+const showToast = createToastController(document.getElementById('toastBanner'));
 
 function announce(msg) {
   announcer.textContent = '';
@@ -72,13 +74,14 @@ const timerView = initTimerView({
   announce,
 });
 
-function consumeIncomingHash() {
-  const payload = decodeUrlHashPayload(window.location.hash);
-  if (!payload) return false;
+Store.onSave(() => syncUrlHashWithActiveGroup());
+initShareActions({ showToast, announce });
 
-  try {
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-  } catch { /* ignore */ }
+function consumeIncomingHash() {
+  const rawHash = window.location.hash;
+  if (!rawHash || isSelfSyncedHash(rawHash)) return false;
+  const payload = decodeUrlHashPayload(rawHash);
+  if (!payload) return false;
 
   const existing = Store.findGroupByIdentity(payload.course, payload.family);
   const existingHasProgress = Boolean(existing && existing.seats.some((s) => s.done));
@@ -93,7 +96,7 @@ function consumeIncomingHash() {
       importModal.hidden = true;
       Store.applyImportedGroup(payload, { keepDone, targetGroupId: existing.id });
       switchView('setup');
-      announce('已載入排組雷達名單，第 1 格為家長、第 2 格為副家長');
+      showToast(`已更新「${formatGroupTitle(Store.getActiveGroup())}」名單`);
     };
     keepBtn.onclick = () => finishImport(true);
     resetBtn.onclick = () => finishImport(false);
@@ -104,7 +107,7 @@ function consumeIncomingHash() {
 
   Store.applyImportedGroup(payload, { keepDone: false });
   switchView('setup');
-  announce('已載入排組雷達小組名單');
+  showToast(`已載入「${formatGroupTitle(Store.getActiveGroup())}」名單`);
   return true;
 }
 
@@ -169,6 +172,7 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
 }
 
 if (!consumeIncomingHash()) {
+  syncUrlHashWithActiveGroup();
   const active = Store.getActiveGroup();
   if (Store.hasActiveMembers(active) || active.shareMode === 'circle') {
     switchView('timer');

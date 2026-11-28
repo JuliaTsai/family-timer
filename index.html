@@ -7,7 +7,6 @@
   <meta name="theme-color" content="#F3F0E9" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#252823" media="(prefers-color-scheme: dark)">
   <meta name="format-detection" content="telephone=no">
-
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -36,6 +35,8 @@
           <h1 class="setup-title">名單設定</h1>
           <select id="setupGroupSelect" class="group-select" aria-label="切換已儲存組別" hidden></select>
           <button type="button" class="btn-pill btn-ghost btn-sm" id="setupNewGroupBtn" title="建立另一組名單">新增一組</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" data-action="share-group" title="分享目前這組最新名單給副家長或另一台裝置">分享此組</button>
+          <button type="button" class="btn-pill btn-ghost btn-sm" data-action="copy-group-link" title="複製目前這組的最新連結">複製連結</button>
         </div>
         <div class="setup-status-right">
           <span class="offline-pill"><i class="offline-dot" aria-hidden="true"></i><span data-offline-label data-with-privacy="true">可離線 · 資料只存在這台裝置</span></span>
@@ -88,14 +89,10 @@
             <button type="button" class="mode-seg-btn" id="modeCircleBtn" aria-pressed="false">序號 / 圍圈</button>
           </div>
 
-          <button type="button" class="btn-pill btn-ghost btn-sm arrange-btn" id="arrangeSeatsBtn">
-            <span id="arrangeSeatsText">排座位</span>
-          </button>
+          <button type="button" class="btn-pill btn-ghost btn-sm arrange-btn" id="arrangeSeatsBtn"><span id="arrangeSeatsText">排座位</span></button>
+          <button type="button" class="btn-pill btn-ghost btn-sm" data-action="share-group" title="分享目前這組最新名單與座位">分享此組</button>
 
-          <span class="offline-pill hide-narrow">
-            <i class="offline-dot" aria-hidden="true"></i>
-            <span data-offline-label>可離線</span>
-          </span>
+          <span class="offline-pill hide-narrow"><i class="offline-dot" aria-hidden="true"></i><span data-offline-label>可離線</span></span>
           <button type="button" class="icon-circle-btn" id="openDrawerBtn" aria-label="名單、座位、設定" aria-expanded="false" aria-controls="settingsDrawer"></button>
         </div>
       </header>
@@ -166,6 +163,8 @@
         <select id="drawerGroupSelect" class="group-select group-select-full" aria-label="切換組別"></select>
         <div class="panel-btn-row">
           <button type="button" class="btn-pill btn-outline btn-sm" id="drawerEditSetupBtn">編輯名單 / 座位</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" data-action="share-group">分享此組</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" data-action="copy-group-link">複製連結</button>
           <button type="button" class="btn-pill btn-outline btn-sm" id="drawerNewGroupBtn">新增另一組</button>
           <button type="button" class="btn-pill btn-ghost btn-sm" id="drawerDeleteGroupBtn" title="刪除此組存檔">刪組</button>
         </div>
@@ -291,6 +290,7 @@
     </div>
   </div>
 
+  <div class="toast-banner" id="toastBanner" role="status" aria-live="polite" hidden></div>
   <div class="visually-hidden" id="announcer" aria-live="assertive" aria-atomic="true"></div>
   <script type="module" src="./js/main.js"></script>
 </body>

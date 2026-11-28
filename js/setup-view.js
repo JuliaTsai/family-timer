@@ -95,8 +95,8 @@ export function initSetupView({ root, pasteModal, onOpenOcr, onStartTable, onSta
     input.addEventListener('input', () => {
       const g = Store.getActiveGroup();
       const cleaned = cleanPersonName(input.value);
+      if (cleaned !== g.seats[idx].name) { g.seats[idx].done = false; g.seats[idx].meta = null; }
       g.seats[idx].name = cleaned;
-      if (!cleaned) { g.seats[idx].done = false; g.seats[idx].meta = null; }
       Store.syncCircleTotalFromRoster(g);
       Store.save();
       syncHeaderStats();

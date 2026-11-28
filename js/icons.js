@@ -180,6 +180,26 @@ const ICON_DEFS = {
       ['path', { d: 'M6.5 7l.8 12.2A2 2 0 0 0 9.3 21h5.4a2 2 0 0 0 2-1.8L17.5 7' }],
     ],
   },
+  share: {
+    viewBox: '0 0 20 20',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.75',
+    paths: [
+      ['path', { d: 'M10 3v9.5M6.5 6.5 10 3l3.5 3.5' }],
+      ['path', { d: 'M4 11.5v4a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5v-4' }],
+    ],
+  },
+  link: {
+    viewBox: '0 0 20 20',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: '1.75',
+    paths: [
+      ['path', { d: 'M8.5 11.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5l-1.1 1.1' }],
+      ['path', { d: 'M11.5 8.5a3.5 3.5 0 0 0-5 0l-2 2a3.5 3.5 0 0 0 5 5l1.1-1.1' }],
+    ],
+  },
 };
 
 export function createIcon(name, { size = 20, className = '', label = '' } = {}) {
